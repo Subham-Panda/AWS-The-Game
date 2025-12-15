@@ -141,8 +141,14 @@ export function TrafficSystem() {
         return false; // No path found (Dead End)
     };
 
+    const isPaused = useGameStore((state) => state.isPaused);
+    const timeScale = useGameStore((state) => state.timeScale);
+
     useFrame((state, delta) => {
-        if (!meshRef.current) return;
+        if (!meshRef.current || isPaused) return;
+
+        // Apply Time Scale to Delta
+        const simDelta = delta * timeScale;
 
         // --- TRAFFIC SPAWNER LOGIC ---
         const gateways = nodes.filter(n => n.type === 'gateway');
@@ -150,7 +156,7 @@ export function TrafficSystem() {
         if (gateways.length > 0) {
             if (trafficConfig.mode === 'aggregate') {
                 const ratePerGateway = trafficConfig.totalRate / gateways.length;
-                const packetsToSpawn = ratePerGateway * delta;
+                const packetsToSpawn = ratePerGateway * simDelta;
 
                 spawnAccumulator.current += packetsToSpawn;
 
@@ -178,7 +184,7 @@ export function TrafficSystem() {
                     const rate = trafficConfig.granularRates[type];
                     if (rate <= 0) return;
 
-                    const totalPackets = rate * delta;
+                    const totalPackets = rate * simDelta;
                     let count = Math.floor(totalPackets);
                     if (Math.random() < (totalPackets - count)) count++;
 
@@ -210,7 +216,8 @@ export function TrafficSystem() {
                 return;
             }
 
-            packet.progress += packet.speed;
+            // Apply TimeScale to Speed
+            packet.progress += packet.speed * timeScale;
 
             switch (packet.type) {
                 case 'static': color.setHex(0x06b6d4); break;
@@ -232,25 +239,14 @@ export function TrafficSystem() {
                     loadCounts.current[targetNode.id] = (loadCounts.current[targetNode.id] || 0) + 1;
 
                     // Capacity / Overload Check
-                    // We check TIER_CONFIG directly based strictly on node type/tier
                     const config = TIER_CONFIG[targetNode.type];
                     if (config) {
                         const stats = config[(targetNode.tier || 1) - 1]; // tier is 1-based
                         const capacity = stats?.capacity || 100;
 
-                        // We need accumulated load (loadCounts) effectively representing "Packets per Second" if we sum them?
-                        // Actually loadCounts accumulates indefinitey until flush.
-                        // We need "instantaneous" check? 
-                        // Or we just let it ride?
-                        // Let's act on the FLUSH? No, flush is in useEffect.
-                        // We want immediate penalty if overloaded.
-                        // But we don't know the exact "Per Second" rate here in the loop easily without time tracking.
-                        // Simplification: Check if `loadCounts.current[id]` exceeds `capacity` ANY time.
-                        // This means if > capacity packets arrive in < 1 second, we punish. All subsequent packets punish.
-                        // This is harsh but valid.
                         if (loadCounts.current[targetNode.id] > capacity) {
                             // OVERLOAD PENALTY
-                            // Extreme Damage
+                            // Extreme Damage - KEEPING THIS as it's usage penalty, not "degradation"
                             useGameStore.getState().damageNode(targetNode.id, 2.0);
                             // Record Failure (Dropped Request)
                             useGameStore.getState().recordFailure();
@@ -285,7 +281,8 @@ export function TrafficSystem() {
                             useGameStore.getState().recordFailure();
                         } else {
                             useGameStore.getState().updateCash(5);
-                            useGameStore.getState().damageNode(targetNode.id, 0.5);
+                            // DISABLED DEGRADATION
+                            // useGameStore.getState().damageNode(targetNode.id, 0.5); 
 
                             if (packet.type === 'write' || packet.type === 'upload') {
                                 const targetType = packet.type === 'write' ? 'database' : 's3';
@@ -303,7 +300,8 @@ export function TrafficSystem() {
                         }
                     }
                     else if (targetNode.type === 'cache') {
-                        useGameStore.getState().damageNode(targetNode.id, 0.2);
+                        // DISABLED DEGRADATION
+                        // useGameStore.getState().damageNode(targetNode.id, 0.2); 
 
                         let hitRate = 0;
                         if (packet.type === 'static') hitRate = 0.90;
@@ -321,11 +319,13 @@ export function TrafficSystem() {
                     }
                     else if (targetNode.type === 'database') {
                         useGameStore.getState().updateCash(packet.type === 'write' ? 20 : 15);
-                        useGameStore.getState().damageNode(targetNode.id, packet.type === 'write' ? 1.5 : 0.8);
+                        // DISABLED DEGRADATION
+                        // useGameStore.getState().damageNode(targetNode.id, packet.type === 'write' ? 1.5 : 0.8); 
                     }
                     else if (targetNode.type === 's3') {
                         useGameStore.getState().updateCash(packet.type === 'upload' ? 25 : 5);
-                        useGameStore.getState().damageNode(targetNode.id, packet.type === 'upload' ? 1.0 : 0.4);
+                        // DISABLED DEGRADATION
+                        // useGameStore.getState().damageNode(targetNode.id, packet.type === 'upload' ? 1.0 : 0.4);
                     }
                 }
             } else {

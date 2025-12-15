@@ -17,7 +17,7 @@ export function TrafficLegend() {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <div className="absolute bottom-6 left-24 z-50 flex flex-col items-start gap-2">
+        <div className="absolute bottom-6 left-6 z-50 flex flex-col-reverse items-start gap-2 pointer-events-auto">
             {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
@@ -29,8 +29,8 @@ export function TrafficLegend() {
 
             {/* Panel */}
             <div className={clsx(
-                "bg-slate-950/90 backdrop-blur-md border border-slate-700/50 p-4 rounded-xl shadow-2xl w-64 transition-all origin-bottom-left",
-                isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4 pointer-events-none absolute bottom-12"
+                "bg-slate-950/90 backdrop-blur-md border border-slate-700/50 p-4 rounded-xl shadow-2xl w-64 transition-all duration-300 origin-bottom-left",
+                isOpen ? "opacity-100 scale-100 translate-y-0 mb-2" : "opacity-0 scale-95 translate-y-4 pointer-events-none h-0 p-0 overflow-hidden border-0"
             )}>
                 <h3 className="text-slate-200 text-xs font-bold uppercase tracking-widest mb-3 border-b border-slate-700 pb-2">
                     Traffic Types

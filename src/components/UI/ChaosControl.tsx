@@ -1,13 +1,15 @@
-'use client';
-
 import { useGameStore } from '@/store/GameStore';
-import { AlertTriangle, Zap, Activity, Globe } from 'lucide-react';
+import { AlertTriangle, Zap, Globe, X } from 'lucide-react';
+import { useState } from 'react';
+import { clsx } from 'clsx';
 
 export function ChaosControl() {
     const nodes = useGameStore((state) => state.nodes);
     const setNodeStatus = useGameStore((state) => state.setNodeStatus);
     const chaosEnabled = useGameStore((state) => state.chaosEnabled);
     const setChaosEnabled = useGameStore((state) => state.setChaosEnabled);
+
+    const [isOpen, setIsOpen] = useState(false);
 
     // Manual Trigger Logic
     const triggerFailure = () => {
@@ -27,17 +29,28 @@ export function ChaosControl() {
     };
 
     return (
-        <div className="absolute bottom-20 right-6 z-50 flex flex-col gap-2">
-            <div className="bg-slate-950/90 backdrop-blur border border-red-900/50 p-3 rounded-lg shadow-xl w-[220px]">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 text-red-400 font-bold uppercase text-xs tracking-wider">
-                        <AlertTriangle size={14} />
-                        Chaos Control
-                    </div>
+        <div className="absolute bottom-20 right-6 z-50 flex flex-row-reverse items-end gap-2 pointer-events-auto">
+            {/* Toggle Button */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 shadow-lg transition-all"
+                title="Chaos Control"
+            >
+                {isOpen ? <X size={20} /> : <AlertTriangle size={20} className="text-red-400" />}
+            </button>
+
+            {/* Panel */}
+            <div className={clsx(
+                "bg-slate-950/90 backdrop-blur border border-red-900/50 p-3 rounded-xl shadow-xl w-[220px] transition-all duration-300 origin-right",
+                isOpen ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-95 translate-x-8 pointer-events-none w-0 p-0 overflow-hidden border-0"
+            )}>
+                <div className="flex items-center justify-between mb-3 border-b border-red-900/30 pb-2">
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Chaos Settings</span>
+                    {/* Chaos Toggle Switch */}
                     <button
                         onClick={() => setChaosEnabled(!chaosEnabled)}
                         className={`w-8 h-4 rounded-full transition-colors relative ${chaosEnabled ? 'bg-green-500' : 'bg-slate-700'}`}
-                        title="Chaos Mode"
+                        title="Master Switch"
                     >
                         <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${chaosEnabled ? 'left-4.5' : 'left-0.5'}`} />
                     </button>
