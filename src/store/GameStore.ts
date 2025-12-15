@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 
 export type NodeType = 'web-server' | 'database' | 'gateway' | 'load-balancer' | 'waf' | 'sqs' | 'cache' | 's3';
+export type LogSeverity = 'info' | 'warning' | 'error';
+
+export interface SystemLog {
+    id: string;
+    timestamp: number;
+    severity: LogSeverity;
+    message: string;
+    sourceId?: string;
+}
 export type SelectedTool = NodeType | 'select' | 'link' | 'demolish' | 'unlink';
 
 // Tier Configuration
@@ -57,11 +66,15 @@ interface GameState {
     upgradeNode: (id: string) => void;
     updateNodeLoad: (id: string, load: number) => void;
     failures: number;
-    recordFailure: () => void;
+    recordFailure: (sourceId?: string, reason?: string) => void;
     chaosEnabled: boolean;
     autoRepairEnabled: boolean;
     setChaosEnabled: (enabled: boolean) => void;
     setAutoRepairEnabled: (enabled: boolean) => void;
+    // Logs
+    logs: SystemLog[];
+    addLog: (severity: LogSeverity, message: string, sourceId?: string) => void;
+    clearLogs: () => void;
     // V2 State
     reputation: number; // 0-100
     timeScale: number; // 0 (paused), 1 (normal), 3 (fast)
@@ -138,6 +151,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     cash: 1000,
     score: 0,
     failures: 0,
+
+    // Logs
+    logs: [],
 
     // Flags
     chaosEnabled: false, // Default to false (User Request)
@@ -260,9 +276,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             });
         }
 
+        // 3. Reputation Recovery (Slowly regain trust if system is running)
+        // Recover 0.1 per tick if no recent failures (simplified: just constant slow drip)
+        // Cap at 100.
+        let newReputation = state.reputation;
+        if (newReputation < 100) {
+            newReputation = Math.min(100, newReputation + 0.05);
+        }
+
         return {
             cash: currentCash,
-            nodes: updatedNodes
+            nodes: updatedNodes,
+            reputation: newReputation
         };
     }),
 
@@ -287,12 +312,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         const node = nodes.find(n => n.id === id);
         if (!node || node.tier >= 5) return;
 
-        // Next tier index is node.tier (since tiers are 1-based, index 1 is Tier 2 config)
-        // Wait, TIER_CONFIG arrays are 0-indexed.
-        // TIER_CONFIG['web-server'][0] is Tier 1 capacity/cost.
-        // So TIER_CONFIG['web-server'][1] is Tier 2.
-        // So to upgrade FROM Tier 1 TO Tier 2, we need cost at index 1.
-
         const nextTier = node.tier + 1;
         const upgradeConfig = TIER_CONFIG[node.type][node.tier]; // Index = current tier (e.g. 1) = 2nd item
 
@@ -311,10 +330,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     })),
 
     // Stats
-    recordFailure: () => set((state) => ({
-        failures: state.failures + 1,
-        cash: state.cash - 10
-    })),
+    recordFailure: (sourceId, reason) => {
+        const state = get();
+        state.addLog('error', reason || 'Request Failed', sourceId);
+        // Penalty: Failures +1, Cash -10, Reputation -2
+        const newReputation = Math.max(0, state.reputation - 2);
+        set({ failures: state.failures + 1, cash: state.cash - 10, reputation: newReputation });
+    },
 
     repairNode: (id) => {
         const { cash, updateCash, setNodeStatus } = get();
@@ -333,6 +355,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     setAutoRepairEnabled: (enabled) => set({ autoRepairEnabled: enabled }),
 
     setChaosEnabled: (enabled) => set({ chaosEnabled: enabled }),
+
+    // Logging Implementation
+    addLog: (severity, message, sourceId) => set((state) => {
+        const newLog: SystemLog = {
+            id: Math.random().toString(36).substr(2, 9),
+            timestamp: Date.now(),
+            severity,
+            message,
+            sourceId
+        };
+        // Keep last 50 logs to prevent memory bloat
+        return { logs: [newLog, ...state.logs].slice(0, 50) };
+    }),
+
+    clearLogs: () => set({ logs: [] }),
 
     // V2 Actions
     setTimeScale: (scale) => set({ timeScale: scale }),

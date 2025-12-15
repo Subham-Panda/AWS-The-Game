@@ -130,6 +130,8 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
         }
     };
 
+    const showDashboard = useGameStore((state) => state.showDashboard);
+
     return (
         <group position={position}>
             {/* Selection Glow/Ring */}
@@ -146,8 +148,16 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
                 {getMaterial()}
             </mesh>
 
-            {/* Label & Health Bar */}
-            <Html position={[0, 1.4, 0]} center>
+            {/* Label & Health Bar - Hidden when Dashboard is Open to prevent z-index bleed */}
+            <Html
+                position={[0, 1.4, 0]}
+                center
+                style={{
+                    opacity: showDashboard ? 0 : 1,
+                    pointerEvents: showDashboard ? 'none' : 'auto',
+                    transition: 'opacity 0.2s'
+                }}
+            >
                 <div className="flex flex-col items-center gap-1 transition-all select-none">
                     {/* Health Bar (Only show if not perfect or selected) */}
                     {(health < 100 || isSelected) && status !== 'down' && (

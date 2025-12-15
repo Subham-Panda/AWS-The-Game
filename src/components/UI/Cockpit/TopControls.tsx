@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore } from '@/store/GameStore';
-import { Play, Pause, FastForward, RotateCcw, Wrench, BarChart3 } from 'lucide-react';
+import { Play, Pause, FastForward, RotateCcw, Wrench } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function TopControls() {
@@ -12,8 +12,6 @@ export function TopControls() {
     const autoRepairEnabled = useGameStore((state) => state.autoRepairEnabled);
     const setAutoRepairEnabled = useGameStore((state) => state.setAutoRepairEnabled);
     const resetToEmpty = useGameStore((state) => state.resetToEmpty);
-    const showDashboard = useGameStore((state) => state.showDashboard);
-    const setShowDashboard = useGameStore((state) => state.setShowDashboard);
 
     return (
         <div className="z-50 pointer-events-auto">
@@ -62,20 +60,6 @@ export function TopControls() {
                     title="Fast Speed"
                 >
                     <FastForward size={18} fill={!isPaused && timeScale === 3 ? "currentColor" : "none"} />
-                </button>
-
-                <div className="w-px h-4 bg-slate-800 mx-1" />
-
-                {/* Dashboard Toggle */}
-                <button
-                    onClick={() => setShowDashboard(!showDashboard)}
-                    className={clsx(
-                        "p-2 rounded transition-all flex items-center gap-2",
-                        showDashboard ? "bg-purple-900/50 text-purple-400 border border-purple-700/50" : "text-slate-500 hover:text-slate-300"
-                    )}
-                    title="Dashboard"
-                >
-                    <BarChart3 size={16} />
                 </button>
 
                 <div className="w-px h-4 bg-slate-800 mx-1" />

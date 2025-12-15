@@ -241,16 +241,13 @@ export function TrafficSystem() {
                     // Capacity / Overload Check
                     const config = TIER_CONFIG[targetNode.type];
                     if (config) {
-                        const stats = config[(targetNode.tier || 1) - 1]; // tier is 1-based
+                        const stats = config[(targetNode.tier || 1) - 1];
                         const capacity = stats?.capacity || 100;
 
                         if (loadCounts.current[targetNode.id] > capacity) {
                             // OVERLOAD PENALTY
-                            // Extreme Damage - KEEPING THIS as it's usage penalty, not "degradation"
                             useGameStore.getState().damageNode(targetNode.id, 2.0);
-                            // Record Failure (Dropped Request)
-                            useGameStore.getState().recordFailure();
-                            // DROP PACKET (Stop processing/relaying)
+                            useGameStore.getState().recordFailure(targetNode.id, `Capacity Exceeded (${loadCounts.current[targetNode.id]} > ${capacity})`);
                             return;
                         }
                     }
@@ -258,51 +255,47 @@ export function TrafficSystem() {
 
                 if (targetNode && (targetNode.status === 'down' || targetNode.status === 'rebooting')) {
                     useGameStore.getState().updateCash(-5);
-                    useGameStore.getState().recordFailure();
+                    useGameStore.getState().recordFailure(targetNode.id, `Connection Refused: Node ${targetNode.status.toUpperCase()}`);
                 }
                 else if (targetNode) {
-                    // Logic ...
                     if (targetNode.type === 'waf') {
                         if (packet.type === 'malicious') {
                             useGameStore.setState(s => ({ score: s.score + 5 }));
                         } else {
                             const sent = relayPacket(targetNode.id, packet.type, ['load-balancer', 'web-server']);
-                            if (!sent) useGameStore.getState().recordFailure();
+                            if (!sent) useGameStore.getState().recordFailure(targetNode.id, 'WAF: No Route to Application');
                         }
                     }
                     else if (targetNode.type === 'load-balancer') {
                         const sent = relayPacket(targetNode.id, packet.type, ['web-server']);
-                        if (!sent) useGameStore.getState().recordFailure();
+                        if (!sent) useGameStore.getState().recordFailure(targetNode.id, 'LB: No Healthy Web Servers');
                     }
                     else if (targetNode.type === 'web-server') {
                         if (packet.type === 'malicious') {
                             useGameStore.getState().updateCash(-50);
                             useGameStore.getState().damageNode(targetNode.id, 20);
-                            useGameStore.getState().recordFailure();
+                            useGameStore.getState().recordFailure(targetNode.id, 'Security Breach: Malicious Traffic on Web Server');
                         } else {
                             useGameStore.getState().updateCash(5);
                             // DISABLED DEGRADATION
-                            // useGameStore.getState().damageNode(targetNode.id, 0.5); 
+                            // useGameStore.getState().damageNode(targetNode.id, 0.5);
 
                             if (packet.type === 'write' || packet.type === 'upload') {
                                 const targetType = packet.type === 'write' ? 'database' : 's3';
                                 const sent = relayPacket(targetNode.id, packet.type, [targetType]);
-                                if (!sent) useGameStore.getState().recordFailure();
+                                if (!sent) useGameStore.getState().recordFailure(targetNode.id, `App: Write Failed - No ${targetType} available`);
                             }
                             else {
                                 const cached = relayPacket(targetNode.id, packet.type, ['cache']);
                                 if (!cached) {
                                     const targetType = packet.type === 'static' ? 's3' : 'database';
                                     const sent = relayPacket(targetNode.id, packet.type, [targetType]);
-                                    if (!sent) useGameStore.getState().recordFailure();
+                                    if (!sent) useGameStore.getState().recordFailure(targetNode.id, `App: Read Failed - No ${targetType} available`);
                                 }
                             }
                         }
                     }
                     else if (targetNode.type === 'cache') {
-                        // DISABLED DEGRADATION
-                        // useGameStore.getState().damageNode(targetNode.id, 0.2); 
-
                         let hitRate = 0;
                         if (packet.type === 'static') hitRate = 0.90;
                         else if (packet.type === 'read') hitRate = 0.40;
@@ -314,18 +307,14 @@ export function TrafficSystem() {
                         } else {
                             const originType = packet.type === 'static' ? 's3' : 'database';
                             const sent = relayPacket(targetNode.id, packet.type, [originType]);
-                            if (!sent) useGameStore.getState().recordFailure();
+                            if (!sent) useGameStore.getState().recordFailure(targetNode.id, `Cache Miss: Origin ${originType} Unreachable`);
                         }
                     }
                     else if (targetNode.type === 'database') {
                         useGameStore.getState().updateCash(packet.type === 'write' ? 20 : 15);
-                        // DISABLED DEGRADATION
-                        // useGameStore.getState().damageNode(targetNode.id, packet.type === 'write' ? 1.5 : 0.8); 
                     }
                     else if (targetNode.type === 's3') {
                         useGameStore.getState().updateCash(packet.type === 'upload' ? 25 : 5);
-                        // DISABLED DEGRADATION
-                        // useGameStore.getState().damageNode(targetNode.id, packet.type === 'upload' ? 1.0 : 0.4);
                     }
                 }
             } else {
