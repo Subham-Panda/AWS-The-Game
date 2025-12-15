@@ -131,6 +131,8 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
     };
 
     const showDashboard = useGameStore((state) => state.showDashboard);
+    const showTechTree = useGameStore((state) => state.showTechTree);
+    const showManual = useGameStore((state) => state.showManual);
 
     return (
         <group position={position}>
@@ -153,8 +155,8 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
                 position={[0, 1.4, 0]}
                 center
                 style={{
-                    opacity: showDashboard ? 0 : 1,
-                    pointerEvents: showDashboard ? 'none' : 'auto',
+                    opacity: showDashboard || showTechTree || showManual ? 0 : 1,
+                    pointerEvents: showDashboard || showTechTree || showManual ? 'none' : 'auto',
                     transition: 'opacity 0.2s'
                 }}
             >

@@ -9,11 +9,25 @@ import { ChaosControl } from '@/components/UI/ChaosControl';
 import { TrafficLegend } from '@/components/UI/TrafficLegend';
 import { TrafficControlPanel } from '@/components/UI/Cockpit/TrafficControlPanel';
 import { ServiceDashboard } from '@/components/UI/Cockpit/ServiceDashboard';
+import { TechTree } from '@/components/UI/Cockpit/TechTree'; // Added import
+import { HelpManual } from '@/components/UI/HelpManual';
 import { useGameStore } from '@/store/GameStore';
+import { useEffect } from 'react';
 
 export default function Home() {
   const showDashboard = useGameStore((state) => state.showDashboard);
   const setShowDashboard = useGameStore((state) => state.setShowDashboard);
+  const tickEconomy = useGameStore((state) => state.tickEconomy);
+  const isPaused = useGameStore((state) => state.isPaused);
+
+  // Global Game Loop (Economy)
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      tickEconomy();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [tickEconomy, isPaused]);
 
   return (
     <main className="w-full h-full relative bg-slate-950 overflow-hidden">
@@ -48,10 +62,13 @@ export default function Home() {
 
       <Scene />
 
-      {/* Dashboard Overlay - Rendered Last for Z-Index Priority */}
+      {/* Full Screen Overlays */}
       {showDashboard && (
         <ServiceDashboard onClose={() => setShowDashboard(false)} />
       )}
+
+      <TechTree />
+      <HelpManual />
     </main>
   );
 }

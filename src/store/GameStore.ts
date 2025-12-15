@@ -24,6 +24,30 @@ export const TIER_CONFIG: Record<NodeType, { capacity: number; cost: number }[]>
     'sqs': [{ capacity: 100, cost: 0 }, { capacity: 300, cost: 500 }, { capacity: 800, cost: 1200 }, { capacity: 2000, cost: 3000 }, { capacity: 5000, cost: 8000 }],
 };
 
+export type TechId = 'server-opt-1' | 'db-sharding-1' | 'auto-scaling' | 'multi-az' | 'blue-green' | 'global-cdn';
+
+export interface TechNode {
+    id: TechId;
+    label: string;
+    description: string;
+    cost: number;
+    requirements: TechId[];
+    position: [number, number]; // For UI layout
+}
+
+export const TECH_TREE: TechNode[] = [
+    // Tier 1
+    { id: 'server-opt-1', label: 'Server Optimization I', description: 'Unlock Tier 2 Web Servers', cost: 100, requirements: [], position: [0, 0] },
+    { id: 'db-sharding-1', label: 'DB Sharding I', description: 'Unlock Tier 2 Databases', cost: 150, requirements: [], position: [0, 1] },
+
+    // Tier 2
+    { id: 'auto-scaling', label: 'Auto-Scaling', description: 'Automatically manage server capacity', cost: 500, requirements: ['server-opt-1'], position: [1, 0] },
+    { id: 'multi-az', label: 'Multi-AZ Deployment', description: 'Resilience against zone failures', cost: 800, requirements: ['server-opt-1', 'db-sharding-1'], position: [1, 1] },
+
+    // Tier 3
+    { id: 'global-cdn', label: 'Global CDN', description: 'Reduce static traffic load by 50%', cost: 2000, requirements: ['auto-scaling'], position: [2, 0] },
+];
+
 export interface Node {
     id: string;
     type: NodeType;
@@ -81,12 +105,22 @@ interface GameState {
     isPaused: boolean;
     selectedTool: SelectedTool;
     showDashboard: boolean;
+    showManual: boolean;
     setShowDashboard: (show: boolean) => void;
+    setShowManual: (show: boolean) => void;
     setTimeScale: (scale: number) => void;
     setPaused: (paused: boolean) => void;
     updateReputation: (amount: number) => void;
     setSelectedTool: (tool: SelectedTool) => void;
     resetToEmpty: () => void;
+
+    // Phase 14: R&D
+    researchPoints: number;
+    unlockedTechs: TechId[];
+    showTechTree: boolean;
+    setShowTechTree: (show: boolean) => void;
+    addResearchPoints: (amount: number) => void;
+    unlockTech: (id: TechId) => void;
 
     // Phase 6: Traffic Control
     trafficConfig: {
@@ -164,7 +198,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     isPaused: true, // Paused initially
     selectedTool: 'select',
     showDashboard: false,
+    showManual: false,
     setShowDashboard: (show: boolean) => set({ showDashboard: show }),
+    setShowManual: (show: boolean) => set({ showManual: show }),
 
     resetToEmpty: () => set({
         nodes: [],
@@ -176,7 +212,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         timeScale: 0,
         isPaused: true,
         selectedNodeId: null,
-        draggedItem: null
+        draggedItem: null,
+        researchPoints: 0,
+        unlockedTechs: [],
+        showTechTree: false
     }),
 
     // Phase 6 Init
@@ -277,11 +316,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         // 3. Reputation Recovery (Slowly regain trust if system is running)
-        // Recover 0.1 per tick if no recent failures (simplified: just constant slow drip)
+        // Recover 0.5 per tick (1% every 2 seconds)
         // Cap at 100.
         let newReputation = state.reputation;
         if (newReputation < 100) {
-            newReputation = Math.min(100, newReputation + 0.05);
+            newReputation = Math.min(100, newReputation + 0.5);
         }
 
         return {
@@ -308,11 +347,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
     upgradeNode: (id) => {
-        const { nodes, cash, updateCash } = get();
+        const { nodes, cash, updateCash, unlockedTechs, addLog } = get();
         const node = nodes.find(n => n.id === id);
         if (!node || node.tier >= 5) return;
 
         const nextTier = node.tier + 1;
+
+        // Upgrade Gating Logic (Phase 15)
+        if (nextTier === 2) {
+            if (node.type === 'web-server' && !unlockedTechs.includes('server-opt-1')) {
+                addLog('warning', 'Research "Server Optimization I" to unlock Tier 2 Servers.');
+                return;
+            }
+            if (node.type === 'database' && !unlockedTechs.includes('db-sharding-1')) {
+                addLog('warning', 'Research "DB Sharding I" to unlock Tier 2 Databases.');
+                return;
+            }
+        }
+
         const upgradeConfig = TIER_CONFIG[node.type][node.tier]; // Index = current tier (e.g. 1) = 2nd item
 
         if (!upgradeConfig) return; // No next tier
@@ -322,6 +374,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             set((state) => ({
                 nodes: state.nodes.map(n => n.id === id ? { ...n, tier: nextTier, health: 100 } : n)
             }));
+            addLog('info', `Upgraded ${node.type} to Tier ${nextTier}`);
+        } else {
+            addLog('warning', `Not enough cash to upgrade. Need $${upgradeConfig.cost}.`);
         }
     },
 
@@ -333,9 +388,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     recordFailure: (sourceId, reason) => {
         const state = get();
         state.addLog('error', reason || 'Request Failed', sourceId);
-        // Penalty: Failures +1, Cash -10, Reputation -2
-        const newReputation = Math.max(0, state.reputation - 2);
-        set({ failures: state.failures + 1, cash: state.cash - 10, reputation: newReputation });
+
+        // Phase 15: Multi-AZ Resilience Buff
+        const hasMultiAZ = state.unlockedTechs.includes('multi-az');
+        const cashPenalty = hasMultiAZ ? 5 : 10;
+        const repPenalty = hasMultiAZ ? 1 : 2;
+
+        const newReputation = Math.max(0, state.reputation - repPenalty);
+        set({ failures: state.failures + 1, cash: state.cash - cashPenalty, reputation: newReputation });
     },
 
     repairNode: (id) => {
@@ -377,5 +437,45 @@ export const useGameStore = create<GameState>((set, get) => ({
     updateReputation: (amount) => set(state => ({
         reputation: Math.max(0, Math.min(100, state.reputation + amount))
     })),
-    setSelectedTool: (tool) => set({ selectedTool: tool })
+    setSelectedTool: (tool) => set({ selectedTool: tool }),
+
+    // Phase 14: Research & Development
+    researchPoints: 0,
+    unlockedTechs: [], // Initialize as empty array
+    showTechTree: false, // Initialize as false
+    addResearchPoints: (amount) => set((state) => ({
+        researchPoints: state.researchPoints + amount
+    })),
+    setShowTechTree: (show) => set({ showTechTree: show }),
+    unlockTech: (id: TechId) => {
+        const { researchPoints, unlockedTechs, addLog } = get();
+        const tech = TECH_TREE.find(t => t.id === id);
+
+        if (!tech) {
+            addLog('error', `Attempted to unlock unknown tech: ${id}`);
+            return;
+        }
+        if (unlockedTechs.includes(id)) {
+            addLog('info', `Tech '${tech.label}' already unlocked.`);
+            return;
+        }
+        if (researchPoints < tech.cost) {
+            addLog('warning', `Not enough research points to unlock '${tech.label}'. Cost: ${tech.cost}, Have: ${Math.floor(researchPoints)}`);
+            return;
+        }
+
+        // Check prerequisites
+        const missingPrereqs = tech.requirements.filter(reqId => !unlockedTechs.includes(reqId));
+        if (missingPrereqs.length > 0) {
+            const missingLabels = missingPrereqs.map(reqId => TECH_TREE.find(t => t.id === reqId)?.label || reqId).join(', ');
+            addLog('warning', `Missing prerequisites for '${tech.label}': ${missingLabels}`);
+            return;
+        }
+
+        set((state) => ({
+            researchPoints: state.researchPoints - tech.cost,
+            unlockedTechs: [...state.unlockedTechs, id]
+        }));
+        addLog('info', `Researched: ${tech.label}`);
+    },
 }));

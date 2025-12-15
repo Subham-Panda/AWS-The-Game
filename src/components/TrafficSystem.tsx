@@ -52,25 +52,85 @@ export function TrafficSystem() {
     // Load Reporting Interval
     useEffect(() => {
         const interval = setInterval(() => {
+            const state = useGameStore.getState();
+            const { nodes, updateNodeLoad, unlockedTechs, addNode, removeNode, cash, updateCash, addLog } = state;
+
+            // 1. Report Load
             const currentCounts = loadCounts.current;
             Object.keys(currentCounts).forEach(id => {
                 const count = currentCounts[id];
                 if (count > 0) {
                     updateNodeLoad(id, count);
-                    currentCounts[id] = 0; // Reset after reporting
-                } else {
-                    // Optionally clear load to 0 if inactive
-                    // updateNodeLoad(id, 0); 
-                    // Kept simple: only update active nodes or we spam updates
+                    currentCounts[id] = 0; // Reset
                 }
             });
-            // Force clear stale ones? 
-            // Better: Iterate ALL nodes in store and set load?
-            // Expensive. Let's just rely on active traffic updates. 
-            // Users will see 0 if we reset on read? 
-            // Actually, we should iterate store nodes to zero-out idle ones.
-            // But we can't access store state easily here without subscription.
-            // Let's stick to active reporting.
+
+            // 2. Auto-Scaling Logic (Phase 15)
+            if (unlockedTechs.includes('auto-scaling')) {
+                const servers = nodes.filter(n => n.type === 'web-server' && n.status === 'active');
+                if (servers.length > 0) {
+                    const totalLoad = servers.reduce((acc, n) => acc + (n.currentLoad || 0), 0);
+                    // Calculate Total Capacity
+                    const totalCapacity = servers.reduce((acc, n) => {
+                        const tier = n.tier || 1;
+                        const config = TIER_CONFIG['web-server'][tier - 1];
+                        return acc + (config ? config.capacity : 10);
+                    }, 0);
+
+                    const utilization = totalCapacity > 0 ? totalLoad / totalCapacity : 0;
+
+                    // Scale Out (> 80%)
+                    if (utilization > 0.8) {
+                        const cost = TIER_CONFIG['web-server'][0].cost || 0; // Cost of Tier 1
+                        if (cash >= cost) {
+                            const id = `asg-${Date.now()}`;
+                            // Simple Grid Positioning for ASG
+                            // Start at [-8, -8] and fill right?
+                            const offset = servers.length;
+                            const x = (offset % 5) * 3 - 6;
+                            const y = -8 - Math.floor(offset / 5) * 3;
+
+                            updateCash(-cost);
+                            addNode({
+                                id,
+                                type: 'web-server',
+                                position: [x, y, 0],
+                                status: 'active',
+                                health: 100
+                            });
+                            addLog('info', `Auto-Scaling: Added Server ${id} (High Load: ${(utilization * 100).toFixed(0)}%)`, 'ASG');
+
+                            // Auto-wire to LB?
+                            // For now, let's assume "Smart LB" detects it if we update GameStore connections?
+                            // Actually, standard logic requires manual linking.
+                            // BUT Auto-Scaling implies Auto-Wiring.
+                            // Let's Find specific LB and connect.
+                            const lb = nodes.find(n => n.type === 'load-balancer');
+                            if (lb) {
+                                state.addConnection(lb.id, id);
+                            }
+                        }
+                    }
+                    // Scale In (< 30%)
+                    else if (utilization < 0.3 && servers.length > 2) {
+                        // Remove last added (non-initial)
+                        // Initial nodes were manually placed. Let's only remove 'asg-' nodes if possible?
+                        // Or just remove the last one in the array.
+                        const victim = servers[servers.length - 1];
+                        // Safety: Don't delete if only 2 left (Min Size)
+
+                        removeNode(victim.id);
+                        // Connections auto-cleanup? No, modify GameStore removeNode if needed? 
+                        // GameStore removeNode doesn't cleanup connections. 
+                        // Fix: Manually cleanup connections.
+                        state.connections
+                            .filter(c => c.sourceId === victim.id || c.targetId === victim.id)
+                            .forEach(c => state.removeConnection(c.sourceId, c.targetId));
+
+                        addLog('info', `Auto-Scaling: Terminated Server ${victim.id} (Low Load: ${(utilization * 100).toFixed(0)}%)`, 'ASG');
+                    }
+                }
+            }
         }, 1000);
         return () => clearInterval(interval);
     }, [updateNodeLoad]);
@@ -143,6 +203,16 @@ export function TrafficSystem() {
 
     const isPaused = useGameStore((state) => state.isPaused);
     const timeScale = useGameStore((state) => state.timeScale);
+
+    // Helper for rewards
+    const recordTransaction = (cashReward: number, scoreReward: number = 1) => {
+        useGameStore.getState().updateCash(cashReward);
+        if (scoreReward > 0) {
+            useGameStore.setState(s => ({ score: s.score + scoreReward }));
+            // Research Points: 1 RP per 10 successful requests (0.1 per request)
+            useGameStore.getState().addResearchPoints(scoreReward * 0.1);
+        }
+    };
 
     useFrame((state, delta) => {
         if (!meshRef.current || isPaused) return;
@@ -260,7 +330,7 @@ export function TrafficSystem() {
                 else if (targetNode) {
                     if (targetNode.type === 'waf') {
                         if (packet.type === 'malicious') {
-                            useGameStore.setState(s => ({ score: s.score + 5 }));
+                            recordTransaction(0, 5); // Score +5, No Cash
                         } else {
                             const sent = relayPacket(targetNode.id, packet.type, ['load-balancer', 'web-server']);
                             if (!sent) useGameStore.getState().recordFailure(targetNode.id, 'WAF: No Route to Application');
@@ -276,7 +346,7 @@ export function TrafficSystem() {
                             useGameStore.getState().damageNode(targetNode.id, 20);
                             useGameStore.getState().recordFailure(targetNode.id, 'Security Breach: Malicious Traffic on Web Server');
                         } else {
-                            useGameStore.getState().updateCash(5);
+                            recordTransaction(5, 1);
                             // DISABLED DEGRADATION
                             // useGameStore.getState().damageNode(targetNode.id, 0.5);
 
@@ -302,8 +372,7 @@ export function TrafficSystem() {
                         else if (packet.type === 'search') hitRate = 0.15;
 
                         if (Math.random() < hitRate) {
-                            useGameStore.getState().updateCash(10);
-                            useGameStore.setState(s => ({ score: s.score + 1 }));
+                            recordTransaction(10, 1);
                         } else {
                             const originType = packet.type === 'static' ? 's3' : 'database';
                             const sent = relayPacket(targetNode.id, packet.type, [originType]);
@@ -311,10 +380,10 @@ export function TrafficSystem() {
                         }
                     }
                     else if (targetNode.type === 'database') {
-                        useGameStore.getState().updateCash(packet.type === 'write' ? 20 : 15);
+                        recordTransaction(packet.type === 'write' ? 20 : 15, 1);
                     }
                     else if (targetNode.type === 's3') {
-                        useGameStore.getState().updateCash(packet.type === 'upload' ? 25 : 5);
+                        recordTransaction(packet.type === 'upload' ? 25 : 5, 1);
                     }
                 }
             } else {

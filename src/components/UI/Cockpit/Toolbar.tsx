@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore, NodeType, SelectedTool } from '@/store/GameStore';
-import { Server, Database, Globe, Network, Shield, Layers, HardDrive, Zap, MousePointer2, Scissors, Trash2, ChevronLeft, ChevronRight, Hammer } from 'lucide-react';
+import { Server, Database, Globe, Network, Shield, Layers, HardDrive, Zap, MousePointer2, Scissors, Trash2, ChevronLeft, ChevronRight, Hammer, HelpCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
 
@@ -139,6 +139,18 @@ export function Toolbar() {
                     </button>
 
                 </div>
+
+                {/* --- DIVIDER --- */}
+                <div className="w-px h-8 bg-slate-800 mx-2" />
+
+                {/* --- HELP --- */}
+                <button
+                    onClick={() => useGameStore.getState().setShowManual(true)}
+                    className="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+                    title="Help Manual"
+                >
+                    <HelpCircle size={18} />
+                </button>
 
             </div>
         </div>

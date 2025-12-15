@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore } from '@/store/GameStore';
-import { DollarSign, Users, Activity, XCircle, BarChart3 } from 'lucide-react';
+import { DollarSign, Users, Activity, XCircle, BarChart3, FlaskConical } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function StatsPanel() {
@@ -12,6 +12,8 @@ export function StatsPanel() {
     const nodes = useGameStore((state) => state.nodes);
     const showDashboard = useGameStore((state) => state.showDashboard);
     const setShowDashboard = useGameStore((state) => state.setShowDashboard);
+    const researchPoints = useGameStore((state) => state.researchPoints);
+    const setShowTechTree = useGameStore((state) => state.setShowTechTree);
 
     // Derived Metrics
     const totalLoad = nodes.reduce((acc, n) => acc + (n.currentLoad || 0), 0);
@@ -90,16 +92,38 @@ export function StatsPanel() {
                 </div>
             </div>
 
-            {/* Right: Budget */}
-            <div className="flex items-center gap-4">
-                <div className="text-right">
-                    <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Available Funds</div>
-                    <div className={`text-lg font-mono font-bold leading-none ${cash < 0 ? 'text-red-500' : 'text-green-400'}`}>
-                        ${cash.toLocaleString()}
+            {/* Right: Budget & Research */}
+            <div className="flex items-center gap-6">
+                {/* Research Points */}
+                <button
+                    onClick={() => setShowTechTree(true)}
+                    className="flex items-center gap-2 group cursor-pointer hover:bg-slate-800/50 p-1 rounded-lg transition-all"
+                    title="Click to Open Research Lab"
+                >
+                    <div className="text-right">
+                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-blue-300">Research</div>
+                        <div className="text-lg font-mono font-bold leading-none text-blue-400 group-hover:text-blue-300">
+                            {Math.floor(researchPoints).toLocaleString()}
+                        </div>
                     </div>
-                </div>
-                <div className="bg-slate-800 p-2 rounded-lg text-slate-400">
-                    <DollarSign size={16} />
+                    <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400 border border-blue-500/20 group-hover:bg-blue-500/20 group-hover:border-blue-400 transition-colors">
+                        <FlaskConical size={16} />
+                    </div>
+                </button>
+
+                <div className="h-8 w-px bg-slate-800" />
+
+                {/* Cash */}
+                <div className="flex items-center gap-2">
+                    <div className="text-right">
+                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Available Funds</div>
+                        <div className={`text-lg font-mono font-bold leading-none ${cash < 0 ? 'text-red-500' : 'text-green-400'}`}>
+                            ${cash.toLocaleString()}
+                        </div>
+                    </div>
+                    <div className="bg-green-500/10 p-2 rounded-lg text-green-400 border border-green-500/20">
+                        <DollarSign size={16} />
+                    </div>
                 </div>
             </div>
         </div>

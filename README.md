@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cloud Resilience Tycoon 🌩️
 
-## Getting Started
+**Build, Scale, and Survive the Cloud.**
 
-First, run the development server:
+A 3D simulation game where you architect a resilient cloud infrastructure to handle massive traffic spikes, defend against cyber attacks, and maintain 99.99% uptime.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🎮 Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 🏗️ 3D Infrastructure Builder
+*   **Drag & Drop**: Build your architecture using **Gateways, Load Balancers, Web Servers, Databases, Caches, and S3 Buckets**.
+*   **Visual Logic**: See traffic flow in real-time as colored packets moving through your system.
+*   **Physics-based Interaction**: Connect nodes with cables to route traffic dynamically.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🚦 Realistic Simulation
+*   **Smart Routing**: Traffic flows logically (Gateway -> LB -> Server -> DB).
+*   **Bottlenecks**: Overloaded nodes will slow down and eventually crash.
+*   **Caching**: Use Redis/Memcached nodes to offload read traffic from your databases.
+*   **Dead Edges**: Misconfigured routes result in failed requests and lost revenue.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🛡️ Cyber Defense
+*   **DDoS Attacks**: Massive spikes of malicious traffic that can overwhelm your servers.
+*   **SQL Injection**: Targeted attacks on your database layer.
+*   **Defensive Tools**: Deploy **WAFs (Web Application Firewalls)** to filter malicious packets before they reach your app.
 
-## Learn More
+### 🔬 Research & Development
+*   **Tech Tree**: Unlock advanced capabilities like **Auto-Scaling Groups**, **Multi-AZ Deployment**, and **Global CDNs**.
+*   **Progression**: Earn **Research Points (RP)** by successfully serving traffic to upgrade your tech stack.
 
-To learn more about Next.js, take a look at the following resources:
+### 💥 Chaos Engineering
+*   **Inject Faults**: Intentionally break servers to test your redundancy.
+*   **Self-Healing**: Build systems that automatically recover from failures.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🕹️ Controls
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+*   **Left Click**: Select Unit / Interact.
+*   **Right Click + Drag**: Pan Camera.
+*   **Scroll**: Zoom In/Out.
+*   **Toolbar**: Select tools (Link, Demolish, Repair).
 
-## Deploy on Vercel
+## 🚀 Getting Started
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2.  **Run Development Server**:
+    ```bash
+    npm run dev
+    ```
+
+3.  **Open Game**:
+    Navigate to [http://localhost:3000](http://localhost:3000).
+
+## 🛠️ Tech Stack
+
+*   **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
+*   **3D Engine**: [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) (Three.js)
+*   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+*   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+*   **Icons**: [Lucide React](https://lucide.dev/)
+
+---
+*Built by Subham Panda.*
