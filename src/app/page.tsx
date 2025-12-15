@@ -10,7 +10,12 @@ import { TrafficLegend } from '@/components/UI/TrafficLegend';
 import { TrafficControlPanel } from '@/components/UI/Cockpit/TrafficControlPanel';
 import { ServiceDashboard } from '@/components/UI/Cockpit/ServiceDashboard';
 import { TechTree } from '@/components/UI/Cockpit/TechTree'; // Added import
+import { ScenarioSelector } from '@/components/UI/ScenarioSelector'; // Added import
+import { ScenarioHUD } from '@/components/UI/ScenarioHUD';
+import { ScenarioBriefing } from '@/components/UI/ScenarioBriefing';
 import { HelpManual } from '@/components/UI/HelpManual';
+import { TutorialHint } from '@/components/UI/TutorialHint'; // Added import
+import { ScenarioComplete } from '@/components/UI/ScenarioComplete'; // Added import
 import { useGameStore } from '@/store/GameStore';
 import { useEffect } from 'react';
 
@@ -18,6 +23,7 @@ export default function Home() {
   const showDashboard = useGameStore((state) => state.showDashboard);
   const setShowDashboard = useGameStore((state) => state.setShowDashboard);
   const tickEconomy = useGameStore((state) => state.tickEconomy);
+  const checkScenarioGoals = useGameStore((state) => state.checkScenarioGoals); // Added
   const isPaused = useGameStore((state) => state.isPaused);
 
   // Global Game Loop (Economy)
@@ -25,9 +31,10 @@ export default function Home() {
     if (isPaused) return;
     const interval = setInterval(() => {
       tickEconomy();
+      checkScenarioGoals(); // Check for victory every tick
     }, 1000);
     return () => clearInterval(interval);
-  }, [tickEconomy, isPaused]);
+  }, [tickEconomy, checkScenarioGoals, isPaused]);
 
   return (
     <main className="w-full h-full relative bg-slate-950 overflow-hidden">
@@ -69,6 +76,14 @@ export default function Home() {
 
       <TechTree />
       <HelpManual />
+      {/* Phase 16: Scenario Selector (Modal) */}
+      <ScenarioSelector /> {/* Will only render if activeScenario is null */}
+
+      {/* Scenario UX */}
+      <ScenarioHUD />
+      <ScenarioBriefing />
+      <TutorialHint />
+      <ScenarioComplete />
     </main>
   );
 }

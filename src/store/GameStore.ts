@@ -144,6 +144,17 @@ interface GameState {
         }
     };
     setTrafficConfig: (config: Partial<GameState['trafficConfig']>) => void;
+    // Phase 16: Scenarios
+    activeScenario: ScenarioId | null;
+    startScenario: (id: ScenarioId) => void;
+    checkScenarioGoals: () => void;
+
+    // UI Helpers
+    showBriefing: boolean;
+    setShowBriefing: (show: boolean) => void;
+    scenarioComplete: boolean;
+    setScenarioComplete: (complete: boolean) => void;
+    isOverlayOpen: () => boolean;
 }
 
 // Initial Scenaro
@@ -172,6 +183,69 @@ const INITIAL_CONNECTIONS: Connection[] = [
     { id: 'c6', sourceId: 'ws-2', targetId: 's3-1' },
     { id: 'c7', sourceId: 'ws-2', targetId: 'db-1' }, // Redundancy
 ];
+
+// Phase 16: Scenarios
+export type ScenarioId = 'sandbox' | 'startup' | 'black-friday' | 'ddos' | 'high-throughput' | 'chaos' | 'legacy';
+
+export interface Scenario {
+    id: ScenarioId;
+    name: string;
+    description: string;
+    difficulty: 'Easy' | 'Medium' | 'Hard';
+    initialCash: number;
+    initialNodes: Node[];
+    initialConnections: Connection[];
+    lockedTechs?: TechId[];
+    trafficConfig: GameState['trafficConfig'];
+    goals: {
+        type: 'cash' | 'reputation' | 'requests' | 'uptime';
+        target: number;
+        label: string;
+    }[];
+}
+
+export const SCENARIOS: Record<ScenarioId, Scenario> = {
+    'sandbox': {
+        id: 'sandbox',
+        name: 'Sandbox Mode',
+        description: 'Build freely with no limits or specific goals.',
+        difficulty: 'Easy',
+        initialCash: 1000,
+        initialNodes: INITIAL_NODES,
+        initialConnections: INITIAL_CONNECTIONS,
+        trafficConfig: {
+            mode: 'aggregate', totalRate: 5,
+            distribution: { static: 30, read: 25, write: 10, search: 10, upload: 5, malicious: 20 },
+            granularRates: { static: 2, read: 2, write: 1, search: 1, upload: 0.5, malicious: 1 }
+        },
+        goals: []
+    },
+    'startup': {
+        id: 'startup',
+        name: 'The Startup',
+        description: 'You have limited seed funding. Build a basic architecture (Gateway -> WAF -> LB -> Server -> DB) and reach $2000 in cash.',
+        difficulty: 'Easy',
+        initialCash: 1500,
+        initialNodes: [],
+        initialConnections: [],
+        trafficConfig: {
+            mode: 'aggregate', totalRate: 2, // Slow start
+            distribution: { static: 40, read: 40, write: 10, search: 10, upload: 0, malicious: 0 },
+            granularRates: { static: 1, read: 1, write: 0.5, search: 0.5, upload: 0, malicious: 0 }
+        },
+        goals: [
+            { type: 'cash', target: 2000, label: 'Accumulate $2,000 Cash' }
+        ]
+    },
+    'black-friday': { id: 'black-friday', name: 'Black Friday', description: 'Survive the spike!', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 20, search: 10, upload: 10, malicious: 0 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 0 } }, goals: [] },
+    'ddos': { id: 'ddos', name: 'DDoS Defense', description: 'Malicious traffic incoming.', difficulty: 'Hard', initialCash: 2000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 10, distribution: { static: 10, read: 10, write: 0, search: 0, upload: 0, malicious: 80 }, granularRates: { static: 0, read: 0, write: 0, search: 0, upload: 0, malicious: 8 } }, goals: [] },
+    'high-throughput': { id: 'high-throughput', name: 'High Throughput', description: 'Caching is key.', difficulty: 'Medium', initialCash: 3000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 20, distribution: { static: 5, read: 90, write: 5, search: 0, upload: 0, malicious: 0 }, granularRates: { static: 0, read: 18, write: 1, search: 0, upload: 0, malicious: 0 } }, goals: [] },
+    'chaos': { id: 'chaos', name: 'Chaos Monkey', description: 'Things will break.', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 20, read: 20, write: 20, search: 20, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
+    'legacy': { id: 'legacy', name: 'Legacy Migration', description: 'Fix the mess.', difficulty: 'Medium', initialCash: 1000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 10, search: 10, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
+
+};
+
+
 
 export const useGameStore = create<GameState>((set, get) => ({
     // Initial State
@@ -215,7 +289,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         draggedItem: null,
         researchPoints: 0,
         unlockedTechs: [],
-        showTechTree: false
+        showTechTree: false,
+
+        // Reset Scenario State
+        activeScenario: null,
+        scenarioComplete: false,
+        showBriefing: false
     }),
 
     // Phase 6 Init
@@ -477,5 +556,62 @@ export const useGameStore = create<GameState>((set, get) => ({
             unlockedTechs: [...state.unlockedTechs, id]
         }));
         addLog('info', `Researched: ${tech.label}`);
+        addLog('info', `Researched: ${tech.label}`);
     },
+
+    // Phase 16: Scenarios
+    activeScenario: null, // Default
+    startScenario: (id) => {
+        const scenario = SCENARIOS[id];
+        if (!scenario) return;
+
+        set({
+            isPaused: true,
+            nodes: scenario.initialNodes,
+            connections: scenario.initialConnections,
+            cash: scenario.initialCash,
+            activeScenario: id,
+            trafficConfig: scenario.trafficConfig,
+            timeScale: 0,
+            reputation: 100,
+            failures: 0,
+            logs: [],
+            researchPoints: 0,
+            unlockedTechs: [],
+            showBriefing: true,
+            scenarioComplete: false
+        });
+        get().addLog('info', `Started Scenario: ${scenario.name}`);
+        get().addLog('info', scenario.description);
+    },
+    checkScenarioGoals: () => {
+        const { activeScenario, cash, reputation } = get();
+        if (!activeScenario) return;
+
+        const scenario = SCENARIOS[activeScenario];
+        scenario.goals.forEach(goal => {
+            let met = false;
+
+            if (goal.type === 'cash' && cash >= goal.target) met = true;
+            // Add other goal types here as needed
+
+            if (met) {
+                // Goal Met!
+                get().addLog('info', `GOAL MET: ${goal.label}!`);
+                set({ scenarioComplete: true, isPaused: true, timeScale: 0 });
+            }
+        });
+    },
+
+    showBriefing: false, // Default
+    setShowBriefing: (show) => set({ showBriefing: show }),
+
+    scenarioComplete: false,
+    setScenarioComplete: (complete) => set({ scenarioComplete: complete }),
+
+    isOverlayOpen: () => {
+        const { showDashboard, showTechTree, showManual, activeScenario, showBriefing, scenarioComplete } = get();
+        // If scenario is null, selector is open.
+        return showDashboard || showTechTree || showManual || activeScenario === null || showBriefing || scenarioComplete;
+    }
 }));

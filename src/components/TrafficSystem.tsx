@@ -342,9 +342,20 @@ export function TrafficSystem() {
                     }
                     else if (targetNode.type === 'web-server') {
                         if (packet.type === 'malicious') {
-                            useGameStore.getState().updateCash(-50);
-                            useGameStore.getState().damageNode(targetNode.id, 20);
-                            useGameStore.getState().recordFailure(targetNode.id, 'Security Breach: Malicious Traffic on Web Server');
+                            // 50% Chance of SQL Injection (Try to reach Database)
+                            if (Math.random() < 0.5) {
+                                const sent = relayPacket(targetNode.id, packet.type, ['database']);
+                                if (!sent) {
+                                    // Failed to reach DB (Good? Or just query failed?)
+                                    // Let's say if no DB, it's just a failed attack
+                                    useGameStore.getState().addLog('info', 'SQL Injection blocked: No Database connected.', targetNode.id);
+                                }
+                            } else {
+                                // standard web defacement
+                                useGameStore.getState().updateCash(-50);
+                                useGameStore.getState().damageNode(targetNode.id, 20);
+                                useGameStore.getState().recordFailure(targetNode.id, 'Security Breach: Web Server Defaced');
+                            }
                         } else {
                             recordTransaction(5, 1);
                             // DISABLED DEGRADATION
@@ -380,7 +391,15 @@ export function TrafficSystem() {
                         }
                     }
                     else if (targetNode.type === 'database') {
-                        recordTransaction(packet.type === 'write' ? 20 : 15, 1);
+                        if (packet.type === 'malicious') {
+                            // CRITICAL DATA LEAK
+                            useGameStore.getState().updateCash(-250);
+                            useGameStore.getState().updateReputation(-10);
+                            useGameStore.getState().damageNode(targetNode.id, 50);
+                            useGameStore.getState().recordFailure(targetNode.id, 'CRITICAL: SQL Injection Data Leak');
+                        } else {
+                            recordTransaction(packet.type === 'write' ? 20 : 15, 1);
+                        }
                     }
                     else if (targetNode.type === 's3') {
                         recordTransaction(packet.type === 'upload' ? 25 : 5, 1);

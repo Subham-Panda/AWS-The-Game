@@ -130,9 +130,7 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
         }
     };
 
-    const showDashboard = useGameStore((state) => state.showDashboard);
-    const showTechTree = useGameStore((state) => state.showTechTree);
-    const showManual = useGameStore((state) => state.showManual);
+    const isOverlayOpen = useGameStore((state) => state.isOverlayOpen());
 
     return (
         <group position={position}>
@@ -150,13 +148,13 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
                 {getMaterial()}
             </mesh>
 
-            {/* Label & Health Bar - Hidden when Dashboard is Open to prevent z-index bleed */}
+            {/* Label & Health Bar - Hidden when any Overlay is Open to prevent z-index bleed */}
             <Html
                 position={[0, 1.4, 0]}
                 center
                 style={{
-                    opacity: showDashboard || showTechTree || showManual ? 0 : 1,
-                    pointerEvents: showDashboard || showTechTree || showManual ? 'none' : 'auto',
+                    opacity: isOverlayOpen ? 0 : 1,
+                    pointerEvents: isOverlayOpen ? 'none' : 'auto',
                     transition: 'opacity 0.2s'
                 }}
             >
