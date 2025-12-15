@@ -207,6 +207,7 @@ export function TrafficSystem() {
     // Helper for rewards
     const recordTransaction = (cashReward: number, scoreReward: number = 1) => {
         useGameStore.getState().updateCash(cashReward);
+        useGameStore.getState().incrementRequestsServed(); // Added
         if (scoreReward > 0) {
             useGameStore.setState(s => ({ score: s.score + scoreReward }));
             // Research Points: 1 RP per 10 successful requests (0.1 per request)

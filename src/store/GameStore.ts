@@ -95,6 +95,10 @@ interface GameState {
     autoRepairEnabled: boolean;
     setChaosEnabled: (enabled: boolean) => void;
     setAutoRepairEnabled: (enabled: boolean) => void;
+    // Stats
+    requestsServed: number;
+    incrementRequestsServed: () => void;
+
     // Logs
     logs: SystemLog[];
     addLog: (severity: LogSeverity, message: string, sourceId?: string) => void;
@@ -146,7 +150,9 @@ interface GameState {
     setTrafficConfig: (config: Partial<GameState['trafficConfig']>) => void;
     // Phase 16: Scenarios
     activeScenario: ScenarioId | null;
+    scenarioElapsedTime: number;
     startScenario: (id: ScenarioId) => void;
+    tickScenario: () => void;
     checkScenarioGoals: () => void;
 
     // UI Helpers
@@ -264,8 +270,47 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
             { type: 'cash', target: 2000, label: 'Accumulate $2,000 Cash' }
         ]
     },
-    'black-friday': { id: 'black-friday', name: 'Black Friday', description: 'Survive the spike!', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 20, search: 10, upload: 10, malicious: 0 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 0 } }, goals: [] },
-    'ddos': { id: 'ddos', name: 'DDoS Defense', description: 'Malicious traffic incoming.', difficulty: 'Hard', initialCash: 2000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 10, distribution: { static: 10, read: 10, write: 0, search: 0, upload: 0, malicious: 80 }, granularRates: { static: 0, read: 0, write: 0, search: 0, upload: 0, malicious: 8 } }, goals: [] },
+    'black-friday': {
+        id: 'black-friday',
+        name: 'Black Friday',
+        description: 'Survive the massive traffic spike! Traffic will surge from 5 to 100 RPS within 60 seconds.',
+        difficulty: 'Hard',
+        initialCash: 5000,
+        initialNodes: [],
+        initialConnections: [],
+        trafficConfig: {
+            mode: 'aggregate',
+            totalRate: 5, // Starts calm
+            distribution: { static: 20, read: 50, write: 30, search: 0, upload: 0, malicious: 0 },
+            granularRates: { static: 1, read: 2.5, write: 1.5, search: 0, upload: 0, malicious: 0 }
+        },
+        goals: [
+            { type: 'uptime', target: 120, label: 'Survive for 120 Seconds' }, // Using 'uptime' as time-survival for now, logic needs to be checked
+            { type: 'reputation', target: 50, label: 'Maintain > 50% Reputation' },
+            { type: 'cash', target: 8000, label: 'Reach $8,000 Profit' }
+        ]
+    },
+    'ddos': {
+        id: 'ddos',
+        name: 'DDoS Defense',
+        description: 'You are under attack! Filter malicious traffic with WAFs while keeping services online.',
+        difficulty: 'Hard',
+        initialCash: 2000,
+        initialNodes: [],
+        initialConnections: [],
+        lockedTechs: ['auto-scaling'], // Lock auto-scaling to focus on security
+        trafficConfig: {
+            mode: 'aggregate',
+            totalRate: 10,
+            distribution: { static: 40, read: 40, write: 10, search: 10, upload: 0, malicious: 0 }, // Starts Clean
+            granularRates: { static: 0, read: 0, write: 0, search: 0, upload: 0, malicious: 0 }
+        },
+        goals: [
+            { type: 'uptime', target: 120, label: 'Survive for 120 Seconds' },
+            { type: 'reputation', target: 20, label: 'Maintain > 20% Reputation' },
+            { type: 'requests', target: 500, label: 'Serve 500 Legitimate Requests' }
+        ]
+    },
     'high-throughput': { id: 'high-throughput', name: 'High Throughput', description: 'Caching is key.', difficulty: 'Medium', initialCash: 3000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 20, distribution: { static: 5, read: 90, write: 5, search: 0, upload: 0, malicious: 0 }, granularRates: { static: 0, read: 18, write: 1, search: 0, upload: 0, malicious: 0 } }, goals: [] },
     'chaos': { id: 'chaos', name: 'Chaos Monkey', description: 'Things will break.', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 20, read: 20, write: 20, search: 20, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
     'legacy': { id: 'legacy', name: 'Legacy Migration', description: 'Fix the mess.', difficulty: 'Medium', initialCash: 1000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 10, search: 10, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
@@ -314,6 +359,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         score: 0,
         failures: 0,
         reputation: 100,
+        requestsServed: 0,
         timeScale: 0,
         isPaused: true,
         selectedNodeId: null,
@@ -588,11 +634,15 @@ export const useGameStore = create<GameState>((set, get) => ({
             unlockedTechs: [...state.unlockedTechs, id]
         }));
         addLog('info', `Researched: ${tech.label}`);
-        addLog('info', `Researched: ${tech.label}`);
     },
+
+    // Stats
+    requestsServed: 0,
+    incrementRequestsServed: () => set((state) => ({ requestsServed: state.requestsServed + 1 })),
 
     // Phase 16: Scenarios
     activeScenario: null, // Default
+    scenarioElapsedTime: 0, // Track time in specific scenario
     startScenario: (id) => {
         const scenario = SCENARIOS[id];
         if (!scenario) return;
@@ -611,28 +661,40 @@ export const useGameStore = create<GameState>((set, get) => ({
             researchPoints: 0,
             unlockedTechs: [],
             showBriefing: true,
-            scenarioComplete: false
+            scenarioComplete: false,
+            scenarioElapsedTime: 0
         });
         get().addLog('info', `Started Scenario: ${scenario.name}`);
         get().addLog('info', scenario.description);
     },
+    tickScenario: () => set((state) => ({
+        scenarioElapsedTime: state.scenarioElapsedTime + 1
+    })),
     checkScenarioGoals: () => {
-        const { activeScenario, cash, reputation } = get();
+        const { activeScenario, cash, reputation, scenarioElapsedTime, requestsServed } = get();
         if (!activeScenario) return;
 
         const scenario = SCENARIOS[activeScenario];
-        scenario.goals.forEach(goal => {
-            let met = false;
 
-            if (goal.type === 'cash' && cash >= goal.target) met = true;
-            // Add other goal types here as needed
-
-            if (met) {
-                // Goal Met!
-                get().addLog('info', `GOAL MET: ${goal.label}!`);
-                set({ scenarioComplete: true, isPaused: true, timeScale: 0 });
-            }
+        // Check if ALL goals are satisfied.
+        const allMet = scenario.goals.every(g => {
+            if (g.type === 'cash') return cash >= g.target;
+            if (g.type === 'reputation') return reputation >= g.target;
+            if (g.type === 'uptime') return scenarioElapsedTime >= g.target;
+            if (g.type === 'requests') return requestsServed >= g.target;
+            return false;
         });
+
+        if (allMet) {
+            get().addLog('info', `SCENARIO COMPLETE: ${scenario.name}!`);
+            set({ scenarioComplete: true, isPaused: true, timeScale: 0 });
+        }
+
+        // Loss Condition
+        if ((activeScenario === 'black-friday' || activeScenario === 'ddos') && reputation <= 0) {
+            set({ isPaused: true, timeScale: 0 });
+            get().addLog('error', 'GAME OVER: Reputation hit 0%. The company has collapsed.');
+        }
     },
 
     showBriefing: false, // Default

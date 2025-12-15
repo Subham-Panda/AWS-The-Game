@@ -17,6 +17,7 @@ import { HelpManual } from '@/components/UI/HelpManual';
 import { TutorialHint } from '@/components/UI/TutorialHint'; // Added import
 import { LandingPage } from '@/components/UI/LandingPage';
 import { ScenarioComplete } from '@/components/UI/ScenarioComplete';
+import { ScenarioEngine } from '@/components/Logic/ScenarioEngine'; // Added import
 import { useGameStore } from '@/store/GameStore';
 import { useEffect } from 'react';
 
@@ -41,6 +42,7 @@ export default function Home() {
   return (
     <main className="w-full h-full relative bg-slate-950 overflow-hidden">
 
+      <ScenarioEngine /> {/* Headless Logic */}
       <Scene />
 
       {/* App State Management */}

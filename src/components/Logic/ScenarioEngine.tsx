@@ -1,0 +1,154 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useGameStore } from '@/store/GameStore';
+
+export function ScenarioEngine() {
+    const activeScenario = useGameStore((state) => state.activeScenario);
+    const appState = useGameStore((state) => state.appState);
+    const isPaused = useGameStore((state) => state.isPaused);
+    const timeScale = useGameStore((state) => state.timeScale);
+    const scenarioElapsedTime = useGameStore((state) => state.scenarioElapsedTime);
+    const tickScenario = useGameStore((state) => state.tickScenario);
+    const setTrafficConfig = useGameStore((state) => state.setTrafficConfig);
+    const addLog = useGameStore((state) => state.addLog);
+
+    // Tick Scenario Time
+    useEffect(() => {
+        if (appState !== 'playing' || isPaused || timeScale === 0) return;
+
+        const interval = setInterval(() => {
+            tickScenario();
+        }, 1000 / (timeScale || 1)); // Adjust for timeScale? Or just real-time seconds? 
+        // Logic: Usually scenarios are based on "Simulated Time" (Game Time), not Real Time. 
+        // If timeScale is 3x, 1 real second = 3 game seconds.
+        // But `tickScenario()` just adds +1. 
+        // So we should fire this interval based on Game Speed. 
+        // Actually, existing economy tick runs at 1000ms. 
+        // Let's attach to the main game loop instead of a separate interval to ensure sync?
+        // But main game loop is in page.tsx.
+        // Let's just run this at 1s interval for now, as "Real Time Seconds" for the user to experience the stress.
+        // Scenario time should probably be "Real Time playing the game".
+
+        return () => clearInterval(interval);
+    }, [appState, isPaused, tickScenario, timeScale]);
+
+    // Scenario Logic Director
+    useEffect(() => {
+        if (!activeScenario) return;
+
+        // BLACK FRIDAY LOGIC
+        if (activeScenario === 'black-friday') {
+            handleBlackFriday(scenarioElapsedTime, setTrafficConfig, addLog);
+        } else if (activeScenario === 'ddos') {
+            handleDDoS(scenarioElapsedTime, setTrafficConfig, addLog);
+        }
+
+        // Add other scenarios here...
+
+    }, [activeScenario, scenarioElapsedTime, setTrafficConfig, addLog]);
+
+    return null; // Headless component
+}
+
+// --- Specific Scenario Scripts ---
+
+export let blackFridayState = 'init'; // Simple state tracker
+export let ddosState = 'init';
+
+export function resetScenarioStates() {
+    blackFridayState = 'init';
+    ddosState = 'init';
+}
+
+export function resetBlackFridayState() { // Keep for backward compatibility if tests use it
+    blackFridayState = 'init';
+}
+
+export function handleBlackFriday(
+    time: number,
+    setTraffic: (config: any) => void,
+    log: (severity: any, msg: string) => void
+) {
+    // 0s - 30s: Calm (5 RPS)
+    if (time < 30) {
+        if (blackFridayState !== 'calm') {
+            setTraffic({ totalRate: 5 });
+            blackFridayState = 'calm';
+        }
+    }
+    // 30s - 60s: Ramping (20 RPS)
+    else if (time >= 30 && time < 60) {
+        if (blackFridayState !== 'ramping') {
+            setTraffic({ totalRate: 20 });
+            log('warning', '⚠️ Traffic is ramping up! Prepare for impact!');
+            blackFridayState = 'ramping';
+        }
+    }
+    // 60s - 120s: THE SPIKE (100 RPS)
+    else if (time >= 60 && time < 120) {
+        if (blackFridayState !== 'spike') {
+            setTraffic({ totalRate: 100 });
+            log('error', '🚨 BLACK FRIDAY SALE STARTED! TRAFFIC SURGE DETECTED!');
+            blackFridayState = 'spike';
+        }
+    }
+    // 120s+: Cooldown (50 RPS)
+    else if (time >= 120) {
+        if (blackFridayState !== 'cooldown') {
+            setTraffic({ totalRate: 50 });
+            log('info', 'Traffic stabilizing. Sale frenzy ending.');
+            blackFridayState = 'cooldown';
+        }
+    }
+}
+
+export function handleDDoS(
+    time: number,
+    setTraffic: (config: any) => void,
+    log: (severity: any, msg: string) => void
+) {
+    // T+0s: Normal Traffic
+    if (time < 20) {
+        if (ddosState !== 'clean') {
+            setTraffic({
+                totalRate: 10,
+                distribution: { static: 40, read: 40, write: 10, search: 10, upload: 0, malicious: 0 }
+            });
+            ddosState = 'clean';
+        }
+    }
+    // T+20s: Probe (Small Malicious Spike)
+    else if (time >= 20 && time < 45) {
+        if (ddosState !== 'probe') {
+            setTraffic({
+                totalRate: 15,
+                distribution: { static: 40, read: 40, write: 0, search: 0, upload: 0, malicious: 20 }
+            });
+            log('warning', '⚠️ Suspicious traffic patterns detected. Potential Probe.');
+            ddosState = 'probe';
+        }
+    }
+    // T+45s: Attack Wave 1
+    else if (time >= 45 && time < 90) {
+        if (ddosState !== 'attack-1') {
+            setTraffic({
+                totalRate: 30,
+                distribution: { static: 20, read: 20, write: 0, search: 0, upload: 0, malicious: 60 }
+            });
+            log('error', '🚨 DDoS Attack Detected! Deploy WAFs immediately!');
+            ddosState = 'attack-1';
+        }
+    }
+    // T+90s: The Flood
+    else if (time >= 90) {
+        if (ddosState !== 'flood') {
+            setTraffic({
+                totalRate: 80,
+                distribution: { static: 10, read: 10, write: 0, search: 0, upload: 0, malicious: 80 }
+            });
+            log('error', '🚨 MASSIVE ATTACK SIGNATURE INCOMING!');
+            ddosState = 'flood';
+        }
+    }
+}
