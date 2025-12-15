@@ -47,6 +47,8 @@ export function ScenarioEngine() {
             handleHighThroughput(scenarioElapsedTime, setTrafficConfig, addLog);
         } else if (activeScenario === 'chaos') {
             handleChaosMonkey(scenarioElapsedTime, killRandomNode, addLog);
+        } else if (activeScenario === 'legacy') {
+            handleLegacy(scenarioElapsedTime, addLog);
         }
 
         // Add other scenarios here...
@@ -62,12 +64,14 @@ export let blackFridayState = 'init'; // Simple state tracker
 export let ddosState = 'init';
 export let highThroughputState = 'init';
 export let chaosMonkeyState = 'init';
+export let legacyState = 'init';
 
 export function resetScenarioStates() {
     blackFridayState = 'init';
     ddosState = 'init';
     highThroughputState = 'init';
     chaosMonkeyState = 'init';
+    legacyState = 'init';
     lastKillTime = 0;
 }
 
@@ -243,6 +247,33 @@ export function handleChaosMonkey(
         if (time - lastKillTime >= 5) {
             killRandomNode();
             lastKillTime = time;
+        }
+    }
+}
+
+export function handleLegacy(
+    time: number,
+    log: (severity: any, msg: string) => void
+) {
+    if (time === 1) {
+        if (legacyState !== 'start') {
+            log('info', '🏢 Legacy System Online. Current OpEx is critical. Refactor immediately.');
+            legacyState = 'start';
+        }
+    }
+
+    // Periodically remind of the goal?
+    if (time === 60) {
+        if (legacyState !== 'mid') {
+            log('warning', '📉 Management is asking for cost reports. 50% Reduction needed.');
+            legacyState = 'mid';
+        }
+    }
+
+    if (time === 150) {
+        if (legacyState !== 'end') {
+            log('info', 'Final audit incoming in 30 seconds.');
+            legacyState = 'end';
         }
     }
 }

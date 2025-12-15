@@ -96,6 +96,7 @@ interface GameState {
     setChaosEnabled: (enabled: boolean) => void;
     setAutoRepairEnabled: (enabled: boolean) => void;
     killRandomNode: () => void;
+    getOperatingCost: () => number;
     // Stats
     requestsServed: number;
     incrementRequestsServed: () => void;
@@ -231,7 +232,7 @@ export interface Scenario {
     lockedTechs?: TechId[];
     trafficConfig: GameState['trafficConfig'];
     goals: {
-        type: 'cash' | 'reputation' | 'requests' | 'uptime';
+        type: 'cash' | 'reputation' | 'requests' | 'uptime' | 'cost';
         target: number;
         label: string;
     }[];
@@ -352,7 +353,48 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
             { type: 'reputation', target: 40, label: 'Maintain > 40% Reputation' }
         ]
     },
-    'legacy': { id: 'legacy', name: 'Legacy Migration', description: 'Fix the mess.', difficulty: 'Medium', initialCash: 1000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 10, search: 10, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
+    'legacy': {
+        id: 'legacy',
+        name: 'Legacy Migration',
+        description: 'Inherited a mess? Fix it. Reduce operating costs by modernizing the architecture without downtime.',
+        difficulty: 'Hard',
+        initialCash: 5000,
+        // The Legacy Mess: 6 Tier-1 Web Servers, 3 Tier-1 DBs, No Load Balancer (Direct Connect madness?? No, Traffic needs LB).
+        // Let's assume a primitive LB pointing to inefficient chain.
+        initialNodes: [
+            { id: 'lb-legacy', type: 'load-balancer', position: [0, 0, 2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+            { id: 'web-1', type: 'web-server', position: [-4, 0, 0], status: 'active', health: 80, tier: 1, currentLoad: 0 },
+            { id: 'web-2', type: 'web-server', position: [-2, 0, 0], status: 'active', health: 75, tier: 1, currentLoad: 0 },
+            { id: 'web-3', type: 'web-server', position: [0, 0, 0], status: 'active', health: 60, tier: 1, currentLoad: 0 },
+            { id: 'web-4', type: 'web-server', position: [2, 0, 0], status: 'active', health: 90, tier: 1, currentLoad: 0 },
+            { id: 'web-5', type: 'web-server', position: [4, 0, 0], status: 'active', health: 85, tier: 1, currentLoad: 0 },
+            { id: 'db-1', type: 'database', position: [-2, 0, -3], status: 'active', health: 70, tier: 1, currentLoad: 0 },
+            { id: 'db-2', type: 'database', position: [2, 0, -3], status: 'active', health: 65, tier: 1, currentLoad: 0 },
+        ],
+        initialConnections: [
+            { id: 'c1', sourceId: 'lb-legacy', targetId: 'web-1' },
+            { id: 'c2', sourceId: 'lb-legacy', targetId: 'web-2' },
+            { id: 'c3', sourceId: 'lb-legacy', targetId: 'web-3' },
+            { id: 'c4', sourceId: 'lb-legacy', targetId: 'web-4' },
+            { id: 'c5', sourceId: 'lb-legacy', targetId: 'web-5' },
+            { id: 'c6', sourceId: 'web-1', targetId: 'db-1' },
+            { id: 'c7', sourceId: 'web-2', targetId: 'db-1' },
+            { id: 'c8', sourceId: 'web-3', targetId: 'db-1' }, // Overloaded DB-1
+            { id: 'c9', sourceId: 'web-4', targetId: 'db-2' },
+            { id: 'c10', sourceId: 'web-5', targetId: 'db-2' },
+        ],
+        trafficConfig: {
+            mode: 'aggregate',
+            totalRate: 20,
+            distribution: { static: 30, read: 50, write: 20, search: 0, upload: 0, malicious: 0 },
+            granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 }
+        },
+        goals: [
+            { type: 'cost', target: 50, label: 'Reduce OpEx to < $50/sec' },
+            { type: 'uptime', target: 180, label: 'Survive for 180 Seconds' },
+            { type: 'reputation', target: 60, label: 'Maintain > 60% Reputation' }
+        ]
+    },
 
 };
 
@@ -675,6 +717,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         addLog('info', `Researched: ${tech.label}`);
     },
 
+    getOperatingCost: () => {
+        const { nodes } = get();
+        // Simple OpEx Model: $10 * Tier per node per second
+        const activeNodes = nodes.filter(n => n.status !== 'down'); // 'failed' was removed, handled as 'down' or 'maintenance'
+        // Wait, did I finalize 'down'? Yes.
+        // Also 'rebooting'.
+        // Only fully 'active' nodes cost money? Or all existing nodes?
+        // Rent is due regardless of uptime!
+        // But maybe 'down' nodes stop costing? That encourages killing them.
+        // The goal is 'Migration' -> Delete them.
+        // So yes, all nodes present in the list cost money?
+        // No, 'down' (failed) nodes might still cost.
+        // But if I delete them (remove from array), cost goes away.
+        return nodes.reduce((total, node) => total + (node.tier * 10), 0);
+    },
+
     // Chaos Monkey Util
     killRandomNode: () => set((state) => {
         const activeNodes = state.nodes.filter(n => n.status === 'active');
@@ -748,6 +806,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             if (g.type === 'reputation') return reputation >= g.target;
             if (g.type === 'uptime') return scenarioElapsedTime >= g.target;
             if (g.type === 'requests') return requestsServed >= g.target;
+            if (g.type === 'cost') return get().getOperatingCost() <= g.target;
             return false;
         });
 
@@ -757,10 +816,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         // Loss Condition
-        if ((activeScenario === 'black-friday' || activeScenario === 'ddos') && reputation <= 0) {
+        if ((activeScenario === 'black-friday' || activeScenario === 'ddos' || activeScenario === 'chaos') && reputation <= 0) {
             set({ isPaused: true, timeScale: 0 });
             get().addLog('error', 'GAME OVER: Reputation hit 0%. The company has collapsed.');
         }
+        // Legacy Loss? If cost is too high at end? No, just won't win.
     },
 
     showBriefing: false, // Default
