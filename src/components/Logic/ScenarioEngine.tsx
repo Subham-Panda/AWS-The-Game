@@ -12,6 +12,7 @@ export function ScenarioEngine() {
     const tickScenario = useGameStore((state) => state.tickScenario);
     const setTrafficConfig = useGameStore((state) => state.setTrafficConfig);
     const addLog = useGameStore((state) => state.addLog);
+    const killRandomNode = useGameStore((state) => state.killRandomNode);
 
     // Tick Scenario Time
     useEffect(() => {
@@ -44,11 +45,13 @@ export function ScenarioEngine() {
             handleDDoS(scenarioElapsedTime, setTrafficConfig, addLog);
         } else if (activeScenario === 'high-throughput') {
             handleHighThroughput(scenarioElapsedTime, setTrafficConfig, addLog);
+        } else if (activeScenario === 'chaos') {
+            handleChaosMonkey(scenarioElapsedTime, killRandomNode, addLog);
         }
 
         // Add other scenarios here...
 
-    }, [activeScenario, scenarioElapsedTime, setTrafficConfig, addLog]);
+    }, [activeScenario, scenarioElapsedTime, setTrafficConfig, addLog, killRandomNode]);
 
     return null; // Headless component
 }
@@ -58,11 +61,14 @@ export function ScenarioEngine() {
 export let blackFridayState = 'init'; // Simple state tracker
 export let ddosState = 'init';
 export let highThroughputState = 'init';
+export let chaosMonkeyState = 'init';
 
 export function resetScenarioStates() {
     blackFridayState = 'init';
     ddosState = 'init';
     highThroughputState = 'init';
+    chaosMonkeyState = 'init';
+    lastKillTime = 0;
 }
 
 export function resetBlackFridayState() { // Keep for backward compatibility if tests use it
@@ -194,6 +200,49 @@ export function handleHighThroughput(
             setTraffic({ totalRate: 80 });
             log('error', '🚨 Peak Traffic Reached!');
             highThroughputState = 'peak';
+        }
+    }
+}
+
+let lastKillTime = 0;
+
+export function handleChaosMonkey(
+    time: number,
+    killRandomNode: () => void,
+    log: (severity: any, msg: string) => void
+) {
+    // T+20s: First Blood
+    if (time >= 20 && time < 45) {
+        if (chaosMonkeyState !== 'active') {
+            log('warning', '🐒 A wild Chaos Monkey appeared!');
+            chaosMonkeyState = 'active';
+        }
+        // Kill once at 20s (approx)
+        if (time === 20 && lastKillTime === 0) {
+            killRandomNode();
+            lastKillTime = time;
+        }
+    }
+    // T+45s: Rampage (Kill every 10s)
+    else if (time >= 45 && time < 90) {
+        if (chaosMonkeyState !== 'rampage') {
+            log('error', '🔥 The Chaos Monkey is destroying infrastructure!');
+            chaosMonkeyState = 'rampage';
+        }
+        if (time - lastKillTime >= 10) {
+            killRandomNode();
+            lastKillTime = time;
+        }
+    }
+    // T+90s: Total Chaos (Kill every 5s)
+    else if (time >= 90) {
+        if (chaosMonkeyState !== 'chaos') {
+            log('error', '💀 MAXIMUM CHAOS! SURVIVE IF YOU CAN!');
+            chaosMonkeyState = 'chaos';
+        }
+        if (time - lastKillTime >= 5) {
+            killRandomNode();
+            lastKillTime = time;
         }
     }
 }

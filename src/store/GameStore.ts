@@ -95,6 +95,7 @@ interface GameState {
     autoRepairEnabled: boolean;
     setChaosEnabled: (enabled: boolean) => void;
     setAutoRepairEnabled: (enabled: boolean) => void;
+    killRandomNode: () => void;
     // Stats
     requestsServed: number;
     incrementRequestsServed: () => void;
@@ -332,7 +333,25 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
             { type: 'reputation', target: 50, label: 'Maintain > 50% Reputation' }
         ]
     },
-    'chaos': { id: 'chaos', name: 'Chaos Monkey', description: 'Things will break.', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 20, read: 20, write: 20, search: 20, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
+    'chaos': {
+        id: 'chaos',
+        name: 'Chaos Monkey',
+        description: 'Resistance is futile? No. Resilience is key. Survive random infrastructure failures.',
+        difficulty: 'Hard',
+        initialCash: 6000,
+        initialNodes: [],
+        initialConnections: [],
+        trafficConfig: {
+            mode: 'aggregate',
+            totalRate: 20,
+            distribution: { static: 20, read: 20, write: 20, search: 20, upload: 10, malicious: 10 },
+            granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 }
+        },
+        goals: [
+            { type: 'uptime', target: 120, label: 'Survive for 120 Seconds' },
+            { type: 'reputation', target: 40, label: 'Maintain > 40% Reputation' }
+        ]
+    },
     'legacy': { id: 'legacy', name: 'Legacy Migration', description: 'Fix the mess.', difficulty: 'Medium', initialCash: 1000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 10, search: 10, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
 
 };
@@ -655,6 +674,33 @@ export const useGameStore = create<GameState>((set, get) => ({
         }));
         addLog('info', `Researched: ${tech.label}`);
     },
+
+    // Chaos Monkey Util
+    killRandomNode: () => set((state) => {
+        const activeNodes = state.nodes.filter(n => n.status === 'active');
+        if (activeNodes.length === 0) return {};
+
+        const victimIndex = Math.floor(Math.random() * activeNodes.length);
+        const victim = activeNodes[victimIndex];
+
+        // Don't kill the last node of a type if possible? No, Chaos is ruthless.
+        // Actually, maybe avoid killing the *only* node initially? No, scenario starts empty anyway.
+
+        const newNodes = state.nodes.map(n =>
+            n.id === victim.id ? { ...n, status: 'down' as const, health: 0 } : n
+        );
+
+        return {
+            nodes: newNodes,
+            logs: [{
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                severity: 'error',
+                message: `🔥 CHAOS MONKEY KILLED NODE: ${victim.type} (${victim.id})`,
+                sourceId: victim.id
+            }, ...state.logs.slice(0, 49)]
+        };
+    }),
 
     // Stats
     requestsServed: 0,
