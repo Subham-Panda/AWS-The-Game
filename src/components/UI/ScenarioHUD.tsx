@@ -8,6 +8,9 @@ export function ScenarioHUD() {
     const activeScenario = useGameStore((state) => state.activeScenario);
     const cash = useGameStore((state) => state.cash);
     const reputation = useGameStore((state) => state.reputation);
+    const scenarioElapsedTime = useGameStore((state) => state.scenarioElapsedTime);
+    const requestsServed = useGameStore((state) => state.requestsServed);
+    const getOperatingCost = useGameStore((state) => state.getOperatingCost);
     // Add other trackers like requests/score if needed later
 
     if (!activeScenario) return null; // Don't show in Sandbox/Menu
@@ -51,8 +54,33 @@ export function ScenarioHUD() {
                         } else if (goal.type === 'reputation') {
                             current = reputation;
                             isMet = reputation >= target;
+                        } else if (goal.type === 'uptime') {
+                            current = scenarioElapsedTime;
+                            isMet = scenarioElapsedTime >= target;
+                        } else if (goal.type === 'requests') {
+                            current = requestsServed;
+                            isMet = requestsServed >= target;
+                        } else if (goal.type === 'cost') {
+                            current = getOperatingCost();
+                            isMet = current <= target;
                         }
-                        // Add other types later
+
+                        // Inverse progress for Cost (Lower is better)
+                        let progress = (current / target) * 100;
+                        if (goal.type === 'cost') {
+                            // If current > target (bad), progress < 100 towards "success"?
+                            // Actually, let's visualize "budget used".
+                            // Target is $50. Current is $200.
+                            // Maybe we show "Current: $200 / Target: <$50".
+                            // Bar should be full red if way over?
+                            // Let's keep simpler linear progress for now, or just limit it.
+                            progress = (target / Math.max(current, 1)) * 100;
+                            // If current=200, target=50 -> 25% "efficiency".
+                            // If current=50, target=50 -> 100%.
+                            // If current=25, target=50 -> >100% (cap it).
+                        } else {
+                            progress = Math.min(100, (current / target) * 100);
+                        }
 
                         return (
                             <div key={i} className="flex flex-col gap-1">
@@ -66,7 +94,7 @@ export function ScenarioHUD() {
                                 <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                                     <div
                                         className={clsx("h-full transition-all duration-500", isMet ? "bg-green-500" : "bg-blue-500")}
-                                        style={{ width: `${Math.min(100, (current / target) * 100)}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
                                     />
                                 </div>
                                 <div className="flex justify-between text-[9px] text-slate-500">

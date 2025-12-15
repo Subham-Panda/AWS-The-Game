@@ -18,6 +18,8 @@ import { TutorialHint } from '@/components/UI/TutorialHint'; // Added import
 import { LandingPage } from '@/components/UI/LandingPage';
 import { ScenarioComplete } from '@/components/UI/ScenarioComplete';
 import { ScenarioEngine } from '@/components/Logic/ScenarioEngine'; // Added import
+import { ToastContainer } from '@/components/UI/ToastContainer';
+import { GameResultsModal } from '@/components/UI/GameResultsModal';
 import { useGameStore } from '@/store/GameStore';
 import { useEffect } from 'react';
 
@@ -99,6 +101,8 @@ export default function Home() {
           <ScenarioBriefing />
           <TutorialHint />
           <ScenarioComplete />
+          <ToastContainer />
+          <GameResultsModal />
         </>
       )}
     </main>
