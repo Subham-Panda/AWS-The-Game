@@ -1,41 +1,42 @@
-# Cloud Resilience Tycoon 🌩️
+# Cloud: The Game ☁️
 
-**Build, Scale, and Survive the Cloud.**
+**Architect. Scale. Survive.**
 
-A 3D simulation game where you architect a resilient cloud infrastructure to handle massive traffic spikes, defend against cyber attacks, and maintain 99.99% uptime.
+A high-fidelity 3D simulation game where you architect resilient cloud infrastructure. Scale from a garage startup to a global tech giant while defending against massive traffic spikes, DDoS attacks, and chaotic failures.
 
 ## 🎮 Features
 
+
+
 ### 🏗️ 3D Infrastructure Builder
-*   **Drag & Drop**: Build your architecture using **Gateways, Load Balancers, Web Servers, Databases, Caches, and S3 Buckets**.
-*   **Visual Logic**: See traffic flow in real-time as colored packets moving through your system.
-*   **Physics-based Interaction**: Connect nodes with cables to route traffic dynamically.
+*   **Drag & Drop**: Build using **Gateways, Load Balancers, Web Servers, Mult-AZ Databases, and Redis Caches**.
+*   **Visual Logic**: Watch colored packets (Blue=Legit, Red=Malicious) flow through your system in real-time.
+*   **Physics-based Interaction**: Connect nodes dynamically with realistic cabling.
 
 ### 🚦 Realistic Simulation
 *   **Smart Routing**: Traffic flows logically (Gateway -> LB -> Server -> DB).
-*   **Bottlenecks**: Overloaded nodes will slow down and eventually crash.
-*   **Caching**: Use Redis/Memcached nodes to offload read traffic from your databases.
-*   **Dead Edges**: Misconfigured routes result in failed requests and lost revenue.
+*   **Bottlenecks**: Overloaded nodes slow down and crash.
+*   **Cost Management**: Manage your burn rate against revenue from successful requests.
+*   **Reputation System**: Failures damage your company's reputation. Don't hit 0%.
 
-### 🛡️ Cyber Defense
-*   **DDoS Attacks**: Massive spikes of malicious traffic that can overwhelm your servers.
-*   **SQL Injection**: Targeted attacks on your database layer.
-*   **Defensive Tools**: Deploy **WAFs (Web Application Firewalls)** to filter malicious packets before they reach your app.
+### 🎯 Scenarios & Challenges
+*   **The Startup**: Learn the basics with limited funding.
+*   **Black Friday**: Survive a massive spike in e-commerce traffic.
+*   **DDoS Defense**: Mitigate targeted cyber attacks using WAFs.
+*   **Chaos Engineering**: Test your resilience against random node failures.
+*   **Sandbox**: Build freely with unlimited resources.
 
 ### 🔬 Research & Development
-*   **Tech Tree**: Unlock advanced capabilities like **Auto-Scaling Groups**, **Multi-AZ Deployment**, and **Global CDNs**.
-*   **Progression**: Earn **Research Points (RP)** by successfully serving traffic to upgrade your tech stack.
-
-### 💥 Chaos Engineering
-*   **Inject Faults**: Intentionally break servers to test your redundancy.
-*   **Self-Healing**: Build systems that automatically recover from failures.
+*   **Tech Tree**: Unlock advanced capabilities like **Auto-Scaling**, **Multi-AZ Resilience**, and **Global CDNs**.
+*   **Progression**: Earn **Research Points (RP)** to upgrade your stack.
 
 ## 🕹️ Controls
 
 *   **Left Click**: Select Unit / Interact.
-*   **Right Click + Drag**: Pan Camera.
+*   **Right Click + Drag**: Pan Camera (Orbit in Menu).
 *   **Scroll**: Zoom In/Out.
 *   **Toolbar**: Select tools (Link, Demolish, Repair).
+*   **Manual**: Access the in-game "Cloud Architecture Manual" for detailed docs.
 
 ## 🚀 Getting Started
 
@@ -58,6 +59,7 @@ A 3D simulation game where you architect a resilient cloud infrastructure to han
 *   **3D Engine**: [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) (Three.js)
 *   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
 *   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+*   **Animation**: [Framer Motion / Native CSS](https://www.framer.com/motion/)
 *   **Icons**: [Lucide React](https://lucide.dev/)
 
 ---

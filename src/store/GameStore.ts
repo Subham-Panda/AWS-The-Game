@@ -154,35 +154,61 @@ interface GameState {
     setShowBriefing: (show: boolean) => void;
     scenarioComplete: boolean;
     setScenarioComplete: (complete: boolean) => void;
+    appState: 'landing' | 'scenario-selection' | 'playing';
+    setAppState: (state: 'landing' | 'scenario-selection' | 'playing') => void;
     isOverlayOpen: () => boolean;
 }
 
-// Initial Scenaro
-const INITIAL_NODES: Node[] = [
-    { id: 'gw-1', type: 'gateway', position: [0, 6, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
-    { id: 'waf-1', type: 'waf', position: [0, 2, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
-    { id: 'lb-1', type: 'load-balancer', position: [0, -2, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+// Helper to generate a "Cyber City" background
+const generateHeroScene = (): { nodes: Node[], connections: Connection[] } => {
+    const nodes: Node[] = [];
+    const connections: Connection[] = [];
+    const gridSize = 6;
+    const spacing = 4;
 
-    // AZ A
-    { id: 'ws-1', type: 'web-server', position: [-4, -6, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
-    { id: 'db-1', type: 'database', position: [-4, -10, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+    for (let x = -gridSize; x <= gridSize; x++) {
+        for (let z = -gridSize; z <= gridSize; z++) {
+            // Skip gathering center for the "void" look
+            if (Math.abs(x) < 2 && Math.abs(z) < 2) continue;
 
-    // AZ B
-    { id: 'ws-2', type: 'web-server', position: [4, -6, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+            const id = `hero-${x}-${z}`;
+            const isDb = Math.random() > 0.8;
+            const isLb = Math.random() > 0.9;
 
-    // Shared
-    { id: 's3-1', type: 's3', position: [4, -10, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
-];
+            nodes.push({
+                id,
+                type: isDb ? 'database' : (isLb ? 'load-balancer' : 'web-server'),
+                position: [x * spacing, 0, z * spacing],
+                status: 'active',
+                health: 100,
+                tier: Math.floor(Math.random() * 3) + 1,
+                currentLoad: Math.random() * 100
+            });
 
-const INITIAL_CONNECTIONS: Connection[] = [
-    { id: 'c1', sourceId: 'gw-1', targetId: 'waf-1' },
-    { id: 'c2', sourceId: 'waf-1', targetId: 'lb-1' },
-    { id: 'c3', sourceId: 'lb-1', targetId: 'ws-1' },
-    { id: 'c4', sourceId: 'lb-1', targetId: 'ws-2' },
-    { id: 'c5', sourceId: 'ws-1', targetId: 'db-1' },
-    { id: 'c6', sourceId: 'ws-2', targetId: 's3-1' },
-    { id: 'c7', sourceId: 'ws-2', targetId: 'db-1' }, // Redundancy
-];
+            // Random connections to neighbors
+            if (Math.random() > 0.7) {
+                const targetX = x + (Math.random() > 0.5 ? 1 : -1);
+                const targetZ = z;
+                const targetId = `hero-${targetX}-${targetZ}`;
+                // We don't check if target exists, just simple visual noise. 
+                // Actually, let's just connect to previous node in row for simplicity if it exists
+                if (nodes.length > 1 && Math.random() > 0.5) {
+                    connections.push({
+                        id: `conn-${id}`,
+                        sourceId: id,
+                        targetId: nodes[nodes.length - 2].id
+                    });
+                }
+            }
+        }
+    }
+    return { nodes, connections };
+};
+
+const HERO_SCENE = generateHeroScene();
+const INITIAL_NODES: Node[] = HERO_SCENE.nodes;
+const INITIAL_CONNECTIONS: Connection[] = HERO_SCENE.connections;
+
 
 // Phase 16: Scenarios
 export type ScenarioId = 'sandbox' | 'startup' | 'black-friday' | 'ddos' | 'high-throughput' | 'chaos' | 'legacy';
@@ -211,8 +237,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'Build freely with no limits or specific goals.',
         difficulty: 'Easy',
         initialCash: 1000,
-        initialNodes: INITIAL_NODES,
-        initialConnections: INITIAL_CONNECTIONS,
+        initialNodes: [], // Empty for fresh start in sandbox? Or keep hero scene as BG until they place? 
+        // Actually for gameplay we want empty. Hero scene is just for menu.
+        initialConnections: [],
         trafficConfig: {
             mode: 'aggregate', totalRate: 5,
             distribution: { static: 30, read: 25, write: 10, search: 10, upload: 5, malicious: 20 },
@@ -266,6 +293,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Flags
     chaosEnabled: false, // Default to false (User Request)
 
+    // App State
+    appState: 'landing',
+    setAppState: (state: 'landing' | 'scenario-selection' | 'playing') => set({ appState: state }),
+
     // V2 Init
     reputation: 100,
     timeScale: 0, // Paused initially (speed 0)
@@ -277,8 +308,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     setShowManual: (show: boolean) => set({ showManual: show }),
 
     resetToEmpty: () => set({
-        nodes: [],
-        connections: [],
+        nodes: HERO_SCENE.nodes,
+        connections: HERO_SCENE.connections,
         cash: 1000,
         score: 0,
         failures: 0,
@@ -294,7 +325,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         // Reset Scenario State
         activeScenario: null,
         scenarioComplete: false,
-        showBriefing: false
+        showBriefing: false,
+        appState: 'scenario-selection'
     }),
 
     // Phase 6 Init
@@ -610,7 +642,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     setScenarioComplete: (complete) => set({ scenarioComplete: complete }),
 
     isOverlayOpen: () => {
-        const { showDashboard, showTechTree, showManual, activeScenario, showBriefing, scenarioComplete } = get();
+        const { showDashboard, showTechTree, showManual, activeScenario, showBriefing, scenarioComplete, appState } = get();
+        // If appState is not playing, overlay is effectively 'open' (blocking 3D interaction)
+        if (appState !== 'playing') return true;
+
         // If scenario is null, selector is open.
         return showDashboard || showTechTree || showManual || activeScenario === null || showBriefing || scenarioComplete;
     }

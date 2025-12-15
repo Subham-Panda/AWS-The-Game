@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Cloud Resilience Tycoon',
-  description: 'Manage your cloud infrastructure',
+  title: "Cloud: The Game",
+  description: "Architect. Scale. Survive.",
 };
 
 export default function RootLayout({

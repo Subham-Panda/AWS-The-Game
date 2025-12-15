@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { MapControls, OrthographicCamera } from '@react-three/drei';
+import { MapControls, OrthographicCamera, OrbitControls } from '@react-three/drei';
 import { GridSystem } from './GridSystem';
 import { GhostItem } from './GhostItem';
 import { InfrastructureNode } from './InfrastructureNode';
@@ -12,6 +12,7 @@ import { useGameStore } from '@/store/GameStore';
 
 export function Scene() {
     const nodes = useGameStore((state) => state.nodes);
+    const appState = useGameStore((state) => state.appState);
 
     return (
         <div className="w-full h-full bg-slate-900">
@@ -25,14 +26,30 @@ export function Scene() {
                     far={200}
                 />
 
-                {/* Controls - Locked to Pan/Zoom only (no rotation for true ISO feel) */}
-                <MapControls
-                    enableRotate={false}
-                    enableZoom={true}
-                    screenSpacePanning={false}
-                    maxZoom={100}
-                    minZoom={20}
-                />
+                {/* Controls - Context Aware */}
+                {appState === 'playing' ? (
+                    <MapControls
+                        enableRotate={false}
+                        enableZoom={true}
+                        screenSpacePanning={false}
+                        maxZoom={100}
+                        minZoom={20}
+                    />
+                ) : (
+                    <OrbitControls
+                        autoRotate
+                        autoRotateSpeed={1.0}
+                        enableZoom={true} // Allow zooming in to see details
+                        maxZoom={20}
+                        minZoom={5}
+                        enablePan={false}
+                        enableRotate={true}
+                        enableDamping={true}
+                        dampingFactor={0.05}
+                        maxPolarAngle={Math.PI / 2.1} // Allow looking lower
+                        minPolarAngle={Math.PI / 6}   // Allow looking higher
+                    />
+                )}
 
                 {/* Lighting */}
                 <ambientLight intensity={0.5} />
