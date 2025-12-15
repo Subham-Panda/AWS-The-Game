@@ -8,8 +8,11 @@ export function ChaosControl() {
     const setNodeStatus = useGameStore((state) => state.setNodeStatus);
     const chaosEnabled = useGameStore((state) => state.chaosEnabled);
     const setChaosEnabled = useGameStore((state) => state.setChaosEnabled);
+    const activeScenario = useGameStore((state) => state.activeScenario);
 
     const [isOpen, setIsOpen] = useState(false);
+
+    if (activeScenario !== 'sandbox') return null;
 
     // Manual Trigger Logic
     const triggerFailure = () => {

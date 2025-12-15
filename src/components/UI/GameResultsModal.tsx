@@ -53,7 +53,7 @@ export function GameResultsModal() {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-500">
             <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-8 transform animate-in zoom-in-95 duration-300">
 
                 {/* Header */}

@@ -19,7 +19,10 @@ export function ScenarioHUD() {
     if (!scenario) return null;
 
     return (
-        <div className="absolute top-[70px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
+        <div className={clsx(
+            "absolute right-6 flex flex-col items-end gap-2 pointer-events-none z-10 transition-all duration-300",
+            activeScenario === 'sandbox' ? "bottom-[120px]" : "bottom-6"
+        )}>
 
             {/* Scenario Header Tag */}
             <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur border border-slate-700/50 px-4 py-1.5 rounded-full shadow-lg">

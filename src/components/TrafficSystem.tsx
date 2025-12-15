@@ -246,6 +246,9 @@ export function TrafficSystem() {
                     if (validTargets.length > 0) {
                         const targetId = validTargets[Math.floor(Math.random() * validTargets.length)];
                         spawnPacket(gw.id, targetId);
+                    } else {
+                        // Punish for disconnected gateway
+                        useGameStore.getState().recordFailure(gw.id, 'Gateway: No Route');
                     }
                 }
             } else {
@@ -273,6 +276,8 @@ export function TrafficSystem() {
                         if (validTargets.length > 0) {
                             const targetId = validTargets[Math.floor(Math.random() * validTargets.length)];
                             spawnPacket(gw.id, targetId, type);
+                        } else {
+                            useGameStore.getState().recordFailure(gw.id, 'Gateway: No Route');
                         }
                     }
                 });

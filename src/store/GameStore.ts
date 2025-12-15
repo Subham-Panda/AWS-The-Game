@@ -282,7 +282,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'You have limited seed funding. Build a basic architecture (Gateway -> WAF -> LB -> Server -> DB) and reach $2000 in cash.',
         difficulty: 'Easy',
         initialCash: 1500,
-        initialNodes: [],
+        initialNodes: [
+            { id: 'gw-start', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 }
+        ],
         initialConnections: [],
         trafficConfig: {
             mode: 'aggregate', totalRate: 2, // Slow start
@@ -299,7 +301,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'Survive the massive traffic spike! Traffic will surge from 5 to 100 RPS within 60 seconds.',
         difficulty: 'Hard',
         initialCash: 5000,
-        initialNodes: [],
+        initialNodes: [
+            { id: 'gw-bf', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 }
+        ],
         initialConnections: [],
         trafficConfig: {
             mode: 'aggregate',
@@ -319,7 +323,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'You are under attack! Filter malicious traffic with WAFs while keeping services online.',
         difficulty: 'Hard',
         initialCash: 2000,
-        initialNodes: [],
+        initialNodes: [
+            { id: 'gw-ddos', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 }
+        ],
         initialConnections: [],
         lockedTechs: ['auto-scaling'], // Lock auto-scaling to focus on security
         trafficConfig: {
@@ -340,7 +346,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'Your database is the bottleneck. Use Caching to offload read traffic and survive the load.',
         difficulty: 'Medium',
         initialCash: 4000,
-        initialNodes: [],
+        initialNodes: [
+            { id: 'gw-ht', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 }
+        ],
         initialConnections: [],
         lockedTechs: ['auto-scaling', 'multi-az'], // Force Caching
         trafficConfig: {
@@ -361,7 +369,9 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'Resistance is futile? No. Resilience is key. Survive random infrastructure failures.',
         difficulty: 'Hard',
         initialCash: 6000,
-        initialNodes: [],
+        initialNodes: [
+            { id: 'gw-chaos', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 }
+        ],
         initialConnections: [],
         trafficConfig: {
             mode: 'aggregate',
@@ -383,6 +393,7 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         // The Legacy Mess: 6 Tier-1 Web Servers, 3 Tier-1 DBs, No Load Balancer (Direct Connect madness?? No, Traffic needs LB).
         // Let's assume a primitive LB pointing to inefficient chain.
         initialNodes: [
+            { id: 'gw-legacy', type: 'gateway', position: [0, 0, 6], status: 'active', health: 100, tier: 1, currentLoad: 0 },
             { id: 'lb-legacy', type: 'load-balancer', position: [0, 0, 2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
             { id: 'web-1', type: 'web-server', position: [-4, 0, 0], status: 'active', health: 80, tier: 1, currentLoad: 0 },
             { id: 'web-2', type: 'web-server', position: [-2, 0, 0], status: 'active', health: 75, tier: 1, currentLoad: 0 },
@@ -393,6 +404,7 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
             { id: 'db-2', type: 'database', position: [2, 0, -3], status: 'active', health: 65, tier: 1, currentLoad: 0 },
         ],
         initialConnections: [
+            { id: 'c0', sourceId: 'gw-legacy', targetId: 'lb-legacy' },
             { id: 'c1', sourceId: 'lb-legacy', targetId: 'web-1' },
             { id: 'c2', sourceId: 'lb-legacy', targetId: 'web-2' },
             { id: 'c3', sourceId: 'lb-legacy', targetId: 'web-3' },
@@ -576,9 +588,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         // 3. Reputation Recovery (Slowly regain trust if system is running)
         // Recover 0.5 per tick (1% every 2 seconds)
-        // Cap at 100.
+        // Cap at 100. But if 0 (Dead), do not recover.
         let newReputation = state.reputation;
-        if (newReputation < 100) {
+        if (newReputation > 0 && newReputation < 100) {
             newReputation = Math.min(100, newReputation + 0.5);
         }
 
@@ -654,7 +666,19 @@ export const useGameStore = create<GameState>((set, get) => ({
         const repPenalty = hasMultiAZ ? 1 : 2;
 
         const newReputation = Math.max(0, state.reputation - repPenalty);
-        set({ failures: state.failures + 1, cash: state.cash - cashPenalty, reputation: newReputation });
+        const isGameEnding = newReputation <= 0 && !!state.activeScenario;
+
+        set({
+            failures: state.failures + 1,
+            cash: state.cash - cashPenalty,
+            reputation: newReputation,
+            isPaused: isGameEnding ? true : state.isPaused, // Pause immediately on loss
+            timeScale: isGameEnding ? 0 : state.timeScale
+        });
+
+        if (isGameEnding) {
+            state.addLog('error', 'GAME OVER: Reputation hit 0%. The company has collapsed.');
+        }
     },
 
     repairNode: (id) => {
@@ -853,11 +877,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     setScenarioComplete: (complete) => set({ scenarioComplete: complete }),
 
     isOverlayOpen: () => {
-        const { showDashboard, showTechTree, showManual, activeScenario, showBriefing, scenarioComplete, appState } = get();
-        // If appState is not playing, overlay is effectively 'open' (blocking 3D interaction)
-        if (appState !== 'playing') return true;
-
-        // If scenario is null, selector is open.
-        return showDashboard || showTechTree || showManual || activeScenario === null || showBriefing || scenarioComplete;
+        const s = get();
+        // Check for Game Over condition matching GameResultsModal logic
+        const isGameOver = (!!s.activeScenario && s.reputation <= 0) || s.scenarioComplete;
+        return s.showDashboard || s.showBriefing || s.appState === 'landing' || s.appState === 'scenario-selection' || isGameOver;
     }
 }));
