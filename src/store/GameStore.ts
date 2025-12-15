@@ -311,7 +311,27 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
             { type: 'requests', target: 500, label: 'Serve 500 Legitimate Requests' }
         ]
     },
-    'high-throughput': { id: 'high-throughput', name: 'High Throughput', description: 'Caching is key.', difficulty: 'Medium', initialCash: 3000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 20, distribution: { static: 5, read: 90, write: 5, search: 0, upload: 0, malicious: 0 }, granularRates: { static: 0, read: 18, write: 1, search: 0, upload: 0, malicious: 0 } }, goals: [] },
+    'high-throughput': {
+        id: 'high-throughput',
+        name: 'High Throughput',
+        description: 'Your database is the bottleneck. Use Caching to offload read traffic and survive the load.',
+        difficulty: 'Medium',
+        initialCash: 4000,
+        initialNodes: [],
+        initialConnections: [],
+        lockedTechs: ['auto-scaling', 'multi-az'], // Force Caching
+        trafficConfig: {
+            mode: 'aggregate',
+            totalRate: 10,
+            distribution: { static: 50, read: 40, write: 10, search: 0, upload: 0, malicious: 0 }, // High Read/Static
+            granularRates: { static: 1, read: 1, write: 1, search: 0, upload: 0, malicious: 0 }
+        },
+        goals: [
+            { type: 'requests', target: 2000, label: 'Serve 2,000 Requests' },
+            { type: 'uptime', target: 120, label: 'Survive for 120 Seconds' },
+            { type: 'reputation', target: 50, label: 'Maintain > 50% Reputation' }
+        ]
+    },
     'chaos': { id: 'chaos', name: 'Chaos Monkey', description: 'Things will break.', difficulty: 'Hard', initialCash: 5000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 20, read: 20, write: 20, search: 20, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
     'legacy': { id: 'legacy', name: 'Legacy Migration', description: 'Fix the mess.', difficulty: 'Medium', initialCash: 1000, initialNodes: [], initialConnections: [], trafficConfig: { mode: 'aggregate', totalRate: 5, distribution: { static: 30, read: 30, write: 10, search: 10, upload: 10, malicious: 10 }, granularRates: { static: 1, read: 1, write: 1, search: 1, upload: 1, malicious: 1 } }, goals: [] },
 

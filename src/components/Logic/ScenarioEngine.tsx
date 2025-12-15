@@ -42,6 +42,8 @@ export function ScenarioEngine() {
             handleBlackFriday(scenarioElapsedTime, setTrafficConfig, addLog);
         } else if (activeScenario === 'ddos') {
             handleDDoS(scenarioElapsedTime, setTrafficConfig, addLog);
+        } else if (activeScenario === 'high-throughput') {
+            handleHighThroughput(scenarioElapsedTime, setTrafficConfig, addLog);
         }
 
         // Add other scenarios here...
@@ -55,10 +57,12 @@ export function ScenarioEngine() {
 
 export let blackFridayState = 'init'; // Simple state tracker
 export let ddosState = 'init';
+export let highThroughputState = 'init';
 
 export function resetScenarioStates() {
     blackFridayState = 'init';
     ddosState = 'init';
+    highThroughputState = 'init';
 }
 
 export function resetBlackFridayState() { // Keep for backward compatibility if tests use it
@@ -149,6 +153,47 @@ export function handleDDoS(
             });
             log('error', '🚨 MASSIVE ATTACK SIGNATURE INCOMING!');
             ddosState = 'flood';
+        }
+    }
+}
+
+export function handleHighThroughput(
+    time: number,
+    setTraffic: (config: any) => void,
+    log: (severity: any, msg: string) => void
+) {
+    // T+0s: Warmup (10 RPS)
+    if (time < 30) {
+        if (highThroughputState !== 'warmup') {
+            setTraffic({
+                totalRate: 10,
+                distribution: { static: 50, read: 40, write: 10, search: 0, upload: 0, malicious: 0 }
+            });
+            highThroughputState = 'warmup';
+        }
+    }
+    // T+30s: Stress Test (30 RPS)
+    else if (time >= 30 && time < 60) {
+        if (highThroughputState !== 'stress') {
+            setTraffic({ totalRate: 30 });
+            log('warning', '⚠️ Traffic rising. Database load increasing.');
+            highThroughputState = 'stress';
+        }
+    }
+    // T+60s: High Load (60 RPS)
+    else if (time >= 60 && time < 90) {
+        if (highThroughputState !== 'high') {
+            setTraffic({ totalRate: 60 });
+            log('error', '🚨 Heavy Traffic Detected! Caching is required to survive.');
+            highThroughputState = 'high';
+        }
+    }
+    // T+90s: Peak (80 RPS)
+    else if (time >= 90) {
+        if (highThroughputState !== 'peak') {
+            setTraffic({ totalRate: 80 });
+            log('error', '🚨 Peak Traffic Reached!');
+            highThroughputState = 'peak';
         }
     }
 }
