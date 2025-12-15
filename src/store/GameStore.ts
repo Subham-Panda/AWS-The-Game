@@ -217,6 +217,28 @@ const HERO_SCENE = generateHeroScene();
 const INITIAL_NODES: Node[] = HERO_SCENE.nodes;
 const INITIAL_CONNECTIONS: Connection[] = HERO_SCENE.connections;
 
+const SANDBOX_SCENE = {
+    nodes: [
+        { id: 'sb-gw', type: 'gateway', position: [-6, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-waf', type: 'waf', position: [-3, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-lb', type: 'load-balancer', position: [0, 0, 0], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-web1', type: 'web-server', position: [3, 0, -2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-web2', type: 'web-server', position: [3, 0, 2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-db', type: 'database', position: [6, 0, -2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+        { id: 'sb-s3', type: 's3', position: [6, 0, 2], status: 'active', health: 100, tier: 1, currentLoad: 0 },
+    ] as Node[],
+    connections: [
+        { id: 'c-sb-1', sourceId: 'sb-gw', targetId: 'sb-waf' },
+        { id: 'c-sb-2', sourceId: 'sb-waf', targetId: 'sb-lb' },
+        { id: 'c-sb-3', sourceId: 'sb-lb', targetId: 'sb-web1' },
+        { id: 'c-sb-4', sourceId: 'sb-lb', targetId: 'sb-web2' },
+        { id: 'c-sb-5', sourceId: 'sb-web1', targetId: 'sb-db' },
+        { id: 'c-sb-6', sourceId: 'sb-web2', targetId: 'sb-db' },
+        { id: 'c-sb-7', sourceId: 'sb-web1', targetId: 'sb-s3' },
+        { id: 'c-sb-8', sourceId: 'sb-web2', targetId: 'sb-s3' },
+    ] as Connection[]
+};
+
 
 // Phase 16: Scenarios
 export type ScenarioId = 'sandbox' | 'startup' | 'black-friday' | 'ddos' | 'high-throughput' | 'chaos' | 'legacy';
@@ -245,13 +267,12 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
         description: 'Build freely with no limits or specific goals.',
         difficulty: 'Easy',
         initialCash: 1000,
-        initialNodes: [], // Empty for fresh start in sandbox? Or keep hero scene as BG until they place? 
-        // Actually for gameplay we want empty. Hero scene is just for menu.
-        initialConnections: [],
+        initialNodes: SANDBOX_SCENE.nodes,
+        initialConnections: SANDBOX_SCENE.connections,
         trafficConfig: {
             mode: 'aggregate', totalRate: 5,
-            distribution: { static: 30, read: 25, write: 10, search: 10, upload: 5, malicious: 20 },
-            granularRates: { static: 2, read: 2, write: 1, search: 1, upload: 0.5, malicious: 1 }
+            distribution: { static: 30, read: 30, write: 30, search: 10, upload: 0, malicious: 0 }, // No Uploads by default to avoid S3 error if user deletes it
+            granularRates: { static: 2, read: 2, write: 1, search: 1, upload: 0, malicious: 0 }
         },
         goals: []
     },
@@ -777,6 +798,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             connections: scenario.initialConnections,
             cash: scenario.initialCash,
             activeScenario: id,
+            appState: 'playing',
             trafficConfig: scenario.trafficConfig,
             timeScale: 0,
             reputation: 100,
@@ -801,7 +823,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         const scenario = SCENARIOS[activeScenario];
 
         // Check if ALL goals are satisfied.
-        const allMet = scenario.goals.every(g => {
+        // Sandbox has 0 goals, so we shouldn't complete it.
+        const allMet = scenario.goals.length > 0 && scenario.goals.every(g => {
             if (g.type === 'cash') return cash >= g.target;
             if (g.type === 'reputation') return reputation >= g.target;
             if (g.type === 'uptime') return scenarioElapsedTime >= g.target;
@@ -815,12 +838,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             set({ scenarioComplete: true, isPaused: true, timeScale: 0 });
         }
 
-        // Loss Condition
-        if ((activeScenario === 'black-friday' || activeScenario === 'ddos' || activeScenario === 'chaos') && reputation <= 0) {
+        // Loss Condition - Generic for all scenarios
+        if (activeScenario && reputation <= 0) {
             set({ isPaused: true, timeScale: 0 });
             get().addLog('error', 'GAME OVER: Reputation hit 0%. The company has collapsed.');
+            // Trigger generic failure state if needed, but GameResultsModal uses paused + rep<=0 check
         }
-        // Legacy Loss? If cost is too high at end? No, just won't win.
     },
 
     showBriefing: false, // Default
