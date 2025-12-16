@@ -4,6 +4,7 @@ import { useGameStore, NodeType, SelectedTool } from '@/store/GameStore';
 import { Server, Database, Globe, Network, Shield, Layers, HardDrive, Zap, MousePointer2, Scissors, Trash2, ChevronLeft, ChevronRight, Hammer, HelpCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
+import { soundManager } from '@/systems/SoundManager';
 
 export function Toolbar() {
     const setDraggedItem = useGameStore((state) => state.setDraggedItem);
@@ -48,7 +49,7 @@ export function Toolbar() {
                 <div className="flex flex-row items-center gap-2">
                     {/* Toggle */}
                     <button
-                        onClick={() => setShowTools(!showTools)}
+                        onClick={() => { setShowTools(!showTools); soundManager.playUiClick(); }}
                         className={clsx(
                             "w-8 h-8 flex items-center justify-center rounded hover:bg-slate-800 text-slate-500 hover:text-white transition-colors",
                             !showTools && "bg-slate-900 text-blue-400"
@@ -68,7 +69,7 @@ export function Toolbar() {
                             return (
                                 <button
                                     key={item.id}
-                                    onClick={() => setSelectedTool(item.id)}
+                                    onClick={() => { setSelectedTool(item.id); soundManager.playUiClick(); }}
                                     className={clsx(
                                         "relative group flex items-center justify-center w-10 h-10 rounded-lg transition-all border",
                                         isActive ? "bg-slate-800 border-white/40 shadow-lg scale-105" : "bg-transparent border-transparent hover:bg-slate-800/50",
@@ -128,7 +129,7 @@ export function Toolbar() {
 
                     {/* Toggle */}
                     <button
-                        onClick={() => setShowBuild(!showBuild)}
+                        onClick={() => { setShowBuild(!showBuild); soundManager.playUiClick(); }}
                         className={clsx(
                             "w-8 h-8 flex items-center justify-center rounded hover:bg-slate-800 text-slate-500 hover:text-white transition-colors",
                             !showBuild && "bg-slate-900 text-purple-400"
@@ -145,7 +146,7 @@ export function Toolbar() {
 
                 {/* --- HELP --- */}
                 <button
-                    onClick={() => useGameStore.getState().setShowManual(true)}
+                    onClick={() => { useGameStore.getState().setShowManual(true); soundManager.playUiClick(); }}
                     className="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
                     title="Help Manual"
                 >

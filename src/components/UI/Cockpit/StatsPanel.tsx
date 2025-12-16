@@ -14,6 +14,7 @@ export function StatsPanel() {
     const setShowDashboard = useGameStore((state) => state.setShowDashboard);
     const researchPoints = useGameStore((state) => state.researchPoints);
     const setShowTechTree = useGameStore((state) => state.setShowTechTree);
+    const setShowFinOps = useGameStore((state) => state.setShowFinOps);
 
     // Derived Metrics
     const totalLoad = nodes.reduce((acc, n) => acc + (n.currentLoad || 0), 0);
@@ -114,17 +115,22 @@ export function StatsPanel() {
                 <div className="h-8 w-px bg-slate-800" />
 
                 {/* Cash */}
-                <div className="flex items-center gap-2">
+                {/* Cash */}
+                <button
+                    onClick={() => setShowFinOps(true)}
+                    className="flex items-center gap-2 group cursor-pointer hover:bg-slate-800/50 p-1 rounded-lg transition-all"
+                    title="Open Financial Operations"
+                >
                     <div className="text-right">
-                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Available Funds</div>
-                        <div className={`text-lg font-mono font-bold leading-none ${cash < 0 ? 'text-red-500' : 'text-green-400'}`}>
+                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider group-hover:text-green-300">Available Funds</div>
+                        <div className={`text-lg font-mono font-bold leading-none ${cash < 0 ? 'text-red-500' : 'text-green-400 group-hover:text-green-300'}`}>
                             ${cash.toLocaleString()}
                         </div>
                     </div>
-                    <div className="bg-green-500/10 p-2 rounded-lg text-green-400 border border-green-500/20">
+                    <div className="bg-green-500/10 p-2 rounded-lg text-green-400 border border-green-500/20 group-hover:bg-green-500/20 group-hover:border-green-400 transition-colors">
                         <DollarSign size={16} />
                     </div>
-                </div>
+                </button>
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { soundManager } from '@/systems/SoundManager';
 
 export type NodeType = 'web-server' | 'database' | 'gateway' | 'load-balancer' | 'waf' | 'sqs' | 'cache' | 's3';
 export type LogSeverity = 'info' | 'warning' | 'error';
@@ -112,8 +113,11 @@ interface GameState {
     selectedTool: SelectedTool;
     showDashboard: boolean;
     showManual: boolean;
+    showFinOps: boolean;
     setShowDashboard: (show: boolean) => void;
     setShowManual: (show: boolean) => void;
+    setShowFinOps: (show: boolean) => void;
+    getCostBreakdown: () => { compute: number; database: number; storage: number; security: number; total: number };
     setTimeScale: (scale: number) => void;
     setPaused: (paused: boolean) => void;
     updateReputation: (amount: number) => void;
@@ -463,7 +467,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     selectedTool: 'select',
     showDashboard: false,
     showManual: false,
+    showFinOps: false,
     setShowDashboard: (show: boolean) => set({ showDashboard: show }),
+    setShowFinOps: (show: boolean) => set({ showFinOps: show }),
     setShowManual: (show: boolean) => set({ showManual: show }),
 
     resetToEmpty: () => set({
@@ -628,10 +634,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (nextTier === 2) {
             if (node.type === 'web-server' && !unlockedTechs.includes('server-opt-1')) {
                 addLog('warning', 'Research "Server Optimization I" to unlock Tier 2 Servers.');
+                soundManager.playError();
                 return;
             }
             if (node.type === 'database' && !unlockedTechs.includes('db-sharding-1')) {
                 addLog('warning', 'Research "DB Sharding I" to unlock Tier 2 Databases.');
+                soundManager.playError();
                 return;
             }
         }
@@ -646,8 +654,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 nodes: state.nodes.map(n => n.id === id ? { ...n, tier: nextTier, health: 100 } : n)
             }));
             addLog('info', `Upgraded ${node.type} to Tier ${nextTier}`);
+            soundManager.playPurchase();
         } else {
             addLog('warning', `Not enough cash to upgrade. Need $${upgradeConfig.cost}.`);
+            soundManager.playError();
         }
     },
 
@@ -659,6 +669,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     recordFailure: (sourceId, reason) => {
         const state = get();
         state.addLog('error', reason || 'Request Failed', sourceId);
+        soundManager.playError();
 
         // Phase 15: Multi-AZ Resilience Buff
         const hasMultiAZ = state.unlockedTechs.includes('multi-az');
@@ -678,6 +689,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         if (isGameEnding) {
             state.addLog('error', 'GAME OVER: Reputation hit 0%. The company has collapsed.');
+            soundManager.playError(); // Or a specific Game Over sound if we had one
         }
     },
 
@@ -691,6 +703,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             set((state) => ({
                 nodes: state.nodes.map(n => n.id === id ? { ...n, health: 100, status: 'active' } : n)
             }));
+            soundManager.playPurchase();
+        } else {
+            soundManager.playError();
         }
     },
 
@@ -760,22 +775,48 @@ export const useGameStore = create<GameState>((set, get) => ({
             unlockedTechs: [...state.unlockedTechs, id]
         }));
         addLog('info', `Researched: ${tech.label}`);
+        soundManager.playSuccess();
+    },
+
+    getCostBreakdown: () => {
+        const { nodes } = get();
+        let breakdown = { compute: 0, database: 0, storage: 0, security: 0, total: 0 };
+
+        nodes.forEach(node => {
+            if (node.status === 'down') return;
+            const tier = node.tier || 1;
+
+            // Should align with tickEconomy logic for consistency
+            // Compute: web-server, load-balancer, cache, sqs
+            // Database: database
+            // Storage: s3
+            // Security: waf, gateway
+
+            // Using generic simplified cost model for now:
+            // DB = 2 * Tier
+            // All others = 1 * Tier
+            // (Matches tickEconomy lines 571-572)
+
+            const isDB = node.type === 'database';
+            const cost = (isDB ? 2 : 1) * tier;
+
+            if (['web-server', 'load-balancer', 'cache', 'sqs'].includes(node.type)) {
+                breakdown.compute += cost;
+            } else if (['database'].includes(node.type)) {
+                breakdown.database += cost;
+            } else if (['s3'].includes(node.type)) {
+                breakdown.storage += cost;
+            } else if (['waf', 'gateway'].includes(node.type)) {
+                breakdown.security += cost;
+            }
+        });
+
+        breakdown.total = breakdown.compute + breakdown.database + breakdown.storage + breakdown.security;
+        return breakdown;
     },
 
     getOperatingCost: () => {
-        const { nodes } = get();
-        // Simple OpEx Model: $10 * Tier per node per second
-        const activeNodes = nodes.filter(n => n.status !== 'down'); // 'failed' was removed, handled as 'down' or 'maintenance'
-        // Wait, did I finalize 'down'? Yes.
-        // Also 'rebooting'.
-        // Only fully 'active' nodes cost money? Or all existing nodes?
-        // Rent is due regardless of uptime!
-        // But maybe 'down' nodes stop costing? That encourages killing them.
-        // The goal is 'Migration' -> Delete them.
-        // So yes, all nodes present in the list cost money?
-        // No, 'down' (failed) nodes might still cost.
-        // But if I delete them (remove from array), cost goes away.
-        return nodes.reduce((total, node) => total + (node.tier * 10), 0);
+        return get().getCostBreakdown().total;
     },
 
     // Chaos Monkey Util
@@ -792,6 +833,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         const newNodes = state.nodes.map(n =>
             n.id === victim.id ? { ...n, status: 'down' as const, health: 0 } : n
         );
+
+        soundManager.playExplosion();
 
         return {
             nodes: newNodes,
@@ -880,6 +923,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         const s = get();
         // Check for Game Over condition matching GameResultsModal logic
         const isGameOver = (!!s.activeScenario && s.reputation <= 0) || s.scenarioComplete;
-        return s.showDashboard || s.showBriefing || s.appState === 'landing' || s.appState === 'scenario-selection' || isGameOver;
+        return s.showDashboard || s.showBriefing || s.appState === 'landing' || s.appState === 'scenario-selection' || isGameOver || s.showFinOps;
     }
 }));

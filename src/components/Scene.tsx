@@ -8,6 +8,7 @@ import { InfrastructureNode } from './InfrastructureNode';
 import { ConnectionManager } from './ConnectionManager';
 import { TrafficSystem } from './TrafficSystem';
 import { ChaosEngine } from './ChaosEngine';
+import { ExplosionParticles } from './VFX/ExplosionParticles';
 import { useGameStore } from '@/store/GameStore';
 
 export function Scene() {
@@ -65,6 +66,7 @@ export function Scene() {
                 <ConnectionManager />
                 <TrafficSystem />
                 <ChaosEngine />
+                <ExplosionParticles />
                 <GhostItem />
 
                 {/* Render Placed Nodes with Interaction Logic */}

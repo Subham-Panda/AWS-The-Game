@@ -13,7 +13,7 @@ export function ScenarioHUD() {
     const getOperatingCost = useGameStore((state) => state.getOperatingCost);
     // Add other trackers like requests/score if needed later
 
-    if (!activeScenario) return null; // Don't show in Sandbox/Menu
+    if (!activeScenario || activeScenario === 'sandbox') return null;
 
     const scenario = SCENARIOS[activeScenario];
     if (!scenario) return null;
@@ -21,7 +21,7 @@ export function ScenarioHUD() {
     return (
         <div className={clsx(
             "absolute right-6 flex flex-col items-end gap-2 pointer-events-none z-10 transition-all duration-300",
-            activeScenario === 'sandbox' ? "bottom-[120px]" : "bottom-6"
+            "bottom-6"
         )}>
 
             {/* Scenario Header Tag */}

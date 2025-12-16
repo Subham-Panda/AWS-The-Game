@@ -20,6 +20,7 @@ import { ScenarioComplete } from '@/components/UI/ScenarioComplete';
 import { ScenarioEngine } from '@/components/Logic/ScenarioEngine'; // Added import
 import { ToastContainer } from '@/components/UI/ToastContainer';
 import { GameResultsModal } from '@/components/UI/GameResultsModal';
+import { FinOpsDashboard } from '@/components/UI/Cockpit/FinOpsDashboard';
 import { useGameStore } from '@/store/GameStore';
 import { useEffect } from 'react';
 
@@ -102,6 +103,7 @@ export default function Home() {
           <TutorialHint />
           <ScenarioComplete />
           <ToastContainer />
+          <FinOpsDashboard />
           <GameResultsModal />
         </>
       )}

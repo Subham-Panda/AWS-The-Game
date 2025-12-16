@@ -83,7 +83,7 @@ export function InfrastructureNode({ id, type, position, status, health }: Infra
 
     const getMaterial = () => {
         // Status overrides
-        if (status === 'down') return <meshStandardMaterial color="#1a1a1a" emissive="#ff0000" emissiveIntensity={0.5} />;
+        if (status === 'down') return <meshStandardMaterial color="#222222" emissive="#ff3333" emissiveIntensity={1.5} roughness={0.9} />;
         if (status === 'rebooting') return <meshStandardMaterial color="#fbbf24" />;
 
         // Type colors
